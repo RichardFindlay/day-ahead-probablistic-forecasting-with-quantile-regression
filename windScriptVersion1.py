@@ -131,11 +131,12 @@ def format_data_into_timesteps(X1, X2, X3, Y, input_seq_size, output_seq_size, i
 	#number of timesteps to be included in each sequence
 	seqX1, seqX2, seqX3, seqY_in, seqY, in_times, out_times = [], [], [], [], [], [], []
 	input_start, input_end = 0, 0
-	output_start = int(input_seq_size*2) - output_seq_size
+	output_start = input_seq_size - output_seq_size 
+	# output_start = int(input_seq_size*2) - output_seq_size
 	# input_seq_size - output_seq_size - nested
 	# input_start + input_seq_size - ahead
 
-	while int((output_start + output_seq_size) / 2) < len(X1):
+	while (output_start + output_seq_size) < len(X1):
 		# (input_start + input_seq_size + output_seq_size)
 		# (input_start + input_seq_size) < len(X1)
 
@@ -155,12 +156,26 @@ def format_data_into_timesteps(X1, X2, X3, Y, input_seq_size, output_seq_size, i
 		#add condition to ommit any days with nan values
 		if np.isnan(X1[input_start:input_end]).any() == True or np.isnan(X2[input_start:input_end]).any() == True or np.isnan(Y[input_start:input_end]).any() == True:
 			input_start += input_seq_size 
-			output_start += int(input_seq_size *2)
+			output_start += input_seq_size 
 			continue
 		elif np.isnan(X3[output_start:output_end]).any() == True or np.isnan(Y[output_start:output_end]).any() == True:
-			input_start += int(output_seq_size /2)
+			input_start += output_seq_size 
 			output_start += output_seq_size 
 			continue
+
+		# #define sequences
+		# input_end = input_start + input_seq_size
+		# output_end = output_start + output_seq_size
+
+		# #add condition to ommit any days with nan values
+		# if np.isnan(X1[input_start:input_end]).any() == True or np.isnan(X2[input_start:input_end]).any() == True or np.isnan(Y[input_start:input_end]).any() == True:
+		# 	input_start += input_seq_size 
+		# 	output_start += int(input_seq_size *2)
+		# 	continue
+		# elif np.isnan(X3[output_start:output_end]).any() == True or np.isnan(Y[output_start:output_end]).any() == True:
+		# 	input_start += int(output_seq_size /2)
+		# 	output_start += output_seq_size 
+		# 	continue
 
 		x1[:,:,:,:] = X1[input_start:input_end]
 		seqX1.append(x1)
@@ -179,15 +194,18 @@ def format_data_into_timesteps(X1, X2, X3, Y, input_seq_size, output_seq_size, i
 		out_time[:] = np.squeeze(output_times_reference[output_start:output_end])
 		out_times.append(out_time)
 		
-		input_start += int(output_seq_size / 2)  # divide by 2 to compensate for 24hr period (edited)
+
+		input_start += output_seq_size  # divide by 2 to compensate for 24hr period (edited)
 		output_start += output_seq_size
+		# input_start += int(output_seq_size / 2)  # divide by 2 to compensate for 24hr period (edited)
+		# output_start += output_seq_size
 
 	print('converting to float32 numpy arrays')
-	seqX1 = np.array(seqX1)
-	seqX2 = np.array(seqX2)
-	seqX3 = np.array(seqX3)
-	seqY_in = np.array(seqY_in)
-	seqY = np.array(seqY)
+	seqX1 = np.array(seqX1, dtype=np.float32)
+	seqX2 = np.array(seqX2, dtype=np.float32)
+	seqX3 = np.array(seqX3, dtype=np.float32)
+	seqY_in = np.array(seqY_in, dtype=np.float32)
+	seqY = np.array(seqY, dtype=np.float32)
 
 
 	# stack 'Y_inputs' onto the spatial array
@@ -289,7 +307,7 @@ def data_processing(filepaths, labels):
 		# vars_extract_filtered_masked_norm[str(key)] = scaler.fit_transform(vars_extract_filtered[str(key)].reshape(vars_extract_filtered[str(key)].shape[0],-1)).reshape(dimensions[0], dimensions[1], dimensions[2])
 
 	# convert u and v components to wind speed and direction
-	ws = np.sqrt(vars_extract_filtered['u_wind_component']**2 * vars_extract_filtered['v_wind_component']**2) 
+	ws = np.sqrt((vars_extract_filtered['u_wind_component']**2) + (vars_extract_filtered['v_wind_component']**2)) 
 	wd = np.arctan(vars_extract_filtered['v_wind_component'] / vars_extract_filtered['u_wind_component'])
 
 	# combine into an array
@@ -306,7 +324,7 @@ def data_processing(filepaths, labels):
 	# feature_array = np.concatenate((feature_array, input_timefeatures), axis = -1)
 
 	# interpolate feature array from 24hrs to 48hrs
-	# feature_array = interpolate_4d(feature_array)
+	feature_array = interpolate_4d(feature_array)
 
 
 	#Do time feature engineering for input times
@@ -320,26 +338,26 @@ def data_processing(filepaths, labels):
 	hour_in = times_in.index.hour 
 	hour_in = np.float32(hour_in)
 
-	# # add HH to hours
-	# index = 0
-	# for idx, time in enumerate(hour_in):
-	# 	if time == 24:
-	# 		index += 1
-	# 	else:
-	# 		hour_in = np.insert(hour_in, index+1, time+0.5)
-	# 		index += 2
+	# add HH to hours
+	index = 0
+	for idx, time in enumerate(hour_in):
+		if time == 24:
+			index += 1
+		else:
+			hour_in = np.insert(hour_in, index+1, time+0.5)
+			index += 2
 
 	month_in = times_in.index.month - 1 
 	year_in = times_in.index.year
 
-	# # duplicate months to compensate for switch from 24hr to 48hr input data 
-	# index = 0
-	# for idx, month in enumerate(month_in):
-	# 	if idx % 24 == 0:
-	# 		index += 1
-	# 	else:
-	# 		month_in = np.insert(month_in, index+1, month)
-	# 		index += 2
+	# duplicate months to compensate for switch from 24hr to 48hr input data 
+	index = 0
+	for idx, month in enumerate(month_in):
+		if idx % 24 == 0:
+			index += 1
+		else:
+			month_in = np.insert(month_in, index+1, month)
+			index += 2
 
 
 	# create one_hot encoding input times: hour and month 
@@ -358,8 +376,7 @@ def data_processing(filepaths, labels):
 	times_in_month_cos = np.expand_dims(np.cos(2*np.pi*month_in/np.max(month_in)), axis=-1)
 
 
-	times_in_year = (year_in - np.min(year_in)) / (np.max(year_in) - np.min(year_in))
-	times_in_year = np.expand_dims(times_in_year, axis=-1)
+	times_in_year = (in_times - np.min(in_times)) / (np.max(in_times) - np.min(in_times))
 
 
 	#Process output times as secondary input for decoder 
@@ -394,6 +411,7 @@ def data_processing(filepaths, labels):
 
 	times_out_year = np.expand_dims((df_times_outputs['year'].values - np.min(df_times_outputs['year'])) / (np.max(df_times_outputs['year']) - np.min(df_times_outputs['year'])), axis=-1)
 
+	print(times_out_hour_cos[:50])
 	#normalise labels
 	scaler = MinMaxScaler()
 	labels[['quantity (MW)']] = scaler.fit_transform(labels[['quantity (MW)']])
@@ -406,14 +424,14 @@ def data_processing(filepaths, labels):
 
 
 	# cyclic method
-	input_times = np.concatenate((times_in_hour_sin, times_in_hour_cos, times_in_month_sin, times_in_month_cos, times_in_year), axis=-1) #swtich to output times for HH periods
+	# input_times = np.concatenate((times_in_hour_sin, times_in_hour_cos, times_in_month_sin, times_in_month_cos), axis=-1) swtich to output times for HH periods
 	output_times = np.concatenate((times_out_hour_sin, times_out_hour_cos, times_out_month_sin, times_out_month_cos, times_out_year), axis=-1)
 
 
 	labels = labels.values
 
 	# testing input 24hr and 48hr input data - convert to 48hrs for X2
-	# input_times = output_times
+	input_times = output_times
 
 	print(feature_array.shape)
 	print(labels.shape)
@@ -426,7 +444,7 @@ def data_processing(filepaths, labels):
 	# exit()
 
 	#divide into timesteps & train and test sets
-	dataset, time_refs = format_data_into_timesteps(X1 = feature_array, X2 = input_times , X3 = output_times, Y = labels, input_seq_size = 96, output_seq_size = 48, input_times_reference = time_refs[0], output_times_reference = time_refs[1]) # converting from 24hr to 48hr inputs hence can use output time references
+	dataset, time_refs = format_data_into_timesteps(X1 = feature_array, X2 = input_times , X3 = output_times, Y = labels, input_seq_size = 96, output_seq_size = 48, input_times_reference = time_refs[1], output_times_reference = time_refs[1]) # converting from 24hr to 48hr inputs hence can use output time references
 	# train_set, test_set, time_refs
 
 	def to_float32(input_dict):
@@ -450,7 +468,7 @@ filepaths = {
 }
 
 #load labels (solar generation per HH)
-windGenLabels = pd.read_csv('./Data/wind/raw_data/HH_windGen.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
+windGenLabels = pd.read_csv('./Data/wind/Raw_Data/HH_windGenV2.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
 
 dataset, time_refs = data_processing(filepaths = filepaths, labels = windGenLabels)
 # train_set, test_set, time_refs 
