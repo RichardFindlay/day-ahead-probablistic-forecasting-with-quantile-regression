@@ -10,11 +10,15 @@ from lxml import objectify
 from collections import OrderedDict
 import os
 
+
+API_KEY = ...
+
+
 def BMRS_GetXML(**kwargs):
 	'''BMRS_XMLGet(api=**YOUR-API-KEY-HERE**, report='PHYBMDATA', sd='2016-01-26', sp=3,
 	bmu='T_COTPS-1',bmutype='T', leadpartyname = 'AES New Energy Limited',ngcbmuname='EAS-ASP01')'''
 
-	url = 'https://api.bmreports.com/BMRS/{report}/V1?APIKey=hzg6x7x013bdoq8&ServiceType=xml'.format(**kwargs)
+	url = 'https://api.bmreports.com/BMRS/{report}/V1?APIKey={API_KEY}&ServiceType=xml'.format(**kwargs)
 
 	for key, value in kwargs.items():
 		if key not in ['report']:
