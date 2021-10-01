@@ -14,7 +14,7 @@ import os
 API_KEY = ...
 
 
-def BMRS_GetXML(**kwargs):
+def BMRS_WindGen(**kwargs):
 	'''BMRS_XMLGet(api=**YOUR-API-KEY-HERE**, report='PHYBMDATA', sd='2016-01-26', sp=3,
 	bmu='T_COTPS-1',bmutype='T', leadpartyname = 'AES New Energy Limited',ngcbmuname='EAS-ASP01')'''
 
@@ -29,26 +29,20 @@ def BMRS_GetXML(**kwargs):
 
 	print(url)
 	
-	return xml
-
-
-def BMRS_Dataframe(**kwargs):
 	'''Takes the sourced XML file produces a dataframe from all the children of the ITEM tag'''
 	tags = []
 	output = []
 
-	for root in BMRS_GetXML(**kwargs).findall("./responseBody/responseList/item/"):
+	for root in xml.findall("./responseBody/responseList/item/"):
 		tags.append(root.tag)
 	tag = list(OrderedDict((x, 1) for x in tags).keys())
 	df = pd.DataFrame(columns=tag)
 
-	for root in BMRS_GetXML(**kwargs).findall("./responseBody/responseList/item"):
+	for root in xml.findall("./responseBody/responseList/item"):
 		data = root.getchildren()
 		output.append(data)
 	df = pd.DataFrame(output, columns=tag)
 	
-
-
 	
 	df = df[['powerSystemResourceType', 'settlementDate', 'settlementPeriod', 'quantity']].copy()
 
@@ -116,7 +110,7 @@ daterange = pd.date_range(start_date, end_date)
 
 for single_date in daterange:
 	print(single_date.strftime("%Y-%m-%d"))
-	df = BMRS_Dataframe(report='B1630', SettlementDate=single_date.strftime("%Y-%m-%d"), Period='*')
+	df = BMRS_WindGen(report='B1630', SettlementDate=single_date.strftime("%Y-%m-%d"), Period='*')
 	complete_df = complete_df.append(df)
 
 
