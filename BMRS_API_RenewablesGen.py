@@ -116,7 +116,7 @@ daterange = pd.date_range(start_date, end_date)
 
 for single_date in daterange:
 	print(single_date.strftime("%Y-%m-%d"))
-	df = BMRS_Dataframe(report='WINDFORFUELHH', SettlementDate=single_date.strftime("%Y-%m-%d"), Period='*')
+	df = BMRS_Dataframe(report='B1630', SettlementDate=single_date.strftime("%Y-%m-%d"), Period='*')
 	complete_df = complete_df.append(df)
 
 
