@@ -27,7 +27,7 @@ import seaborn as sns
 import random
 
 ###########################################_____LOAD_PROCESSED_DATA_____############################################
-dataset_name = 'train_set_V10_withtimefeatures_120hrinput_float32.hdf5'
+dataset_name = 'train_set_V11_withtimefeatures_120hrinput.hdf5'
 
 # load training data dictionary
 # train_set_load = open("/content/drive/My Drive/Processed_Data/train_set_V6_withtimefeatures_120hrinput_.pkl", "rb") 
@@ -52,7 +52,7 @@ f.close()
 
 ###########################################_____DATA_GENERATOR_____#################################################
 
-params = {'batch_size': 32,
+params = {'batch_size': 48,
 		'shuffle': False } 
 
 class DataGenerator(tensorflow.keras.utils.Sequence):
@@ -63,16 +63,22 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 		self.shuffle = shuffle
 		self.xlen = x_length
 		self.ylen = y_length 
+		self.input_idx = 0
 		self.on_epoch_end()
 
 	def __len__(self):
 		# 'number of batches per Epoch'
-		return int(np.floor(self.xlen / self.batch_size))
+		return int(np.floor(self.ylen / self.batch_size))
 
 	def __getitem__(self, index):
 
-		input_indexes = self.input_indexes[index*self.batch_size:(index+1)*self.batch_size]
-		output_indexes = self.output_indexes[index*self.batch_size:(index+1)*self.batch_size]
+		# input batch ref updates 
+		# if (index * self.batch_size) / 48 == 0:
+		if (self.batch_size / 48) 
+
+
+		input_indexes = self.input_indexes[self.input_idx * self.batch_size:(self.input_idx +1)* self.batch_size]
+		output_indexes = self.output_indexes[index * self.batch_size:(index+1) * self.batch_size]
 
 		# Generate data
 		(X_train1, X_train2, X_train3, decoder_input), y_train = self.__data_generation(input_indexes, output_indexes)
@@ -92,15 +98,14 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 		f = h5py.File(f"/content/drive/My Drive/Processed_Data/{self.dataset_name}", "r")      
 		X_train1 = f['train_set']['X1_train'][input_indexes]
 		X_train2 = f['train_set']['X2_train'][input_indexes]
-		X_train3 = f['train_set']['X3_train'][input_indexes]
+		X_train3 = f['train_set']['X3_train'][output_indexes]
 
-		y_train = f['train_set']['y_train'][input_indexes]
+		y_train = f['train_set']['y_train'][output_indexes]
 
-
-		decoder_input = np.empty_like(y_train)  
-		intial_input = np.average(X_train1, axis=(2,3))
-		decoder_input[:, 0, 0] = intial_input[:, -1, 0] # '0' index to select last value of previous days generation
-		decoder_input[:, 1:, :] = y_train[:, :-1, :]
+		# decoder_input = np.empty_like(y_train)  
+		# intial_input = np.average(X_train1, axis=(2,3))
+		# decoder_input[:, 0, 0] = intial_input[:, -1, 0] # '0' index to select last value of previous days generation
+		# decoder_input[:, 1:, :] = y_train[:, :-1, :]
 
 		f.close()  
 
@@ -219,8 +224,8 @@ predict_3 = Conv1D(1, kernel_size=1, strides=1, padding="same", activation="line
 # define inputs
 x_input = Input(shape=(Tx, height, width, channels))
 times_in = Input(shape=(Tx, times_in_dim))
-times_out = Input(shape=(Ty, times_out_dim))
-y_prev = Input(shape=(Ty, 1))
+times_out = Input(shape=(None, times_out_dim))
+y_prev = Input(shape=(None, 1))
 
 
 # call CCN_encoder function
