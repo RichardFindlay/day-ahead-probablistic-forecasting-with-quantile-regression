@@ -48,11 +48,16 @@ x_len = f['train_set']['X1_train'].shape[0]
 y_len = f['train_set']['y_train'].shape[0]
 print('size parameters loaded')
 
+# print(x_len)
+# print(y_len)
+# sys.exit()
+
 f.close()
+
 
 ###########################################_____DATA_GENERATOR_____#################################################
 
-params = {'batch_size': 48,
+params = {'batch_size': 32,
 		'shuffle': False } 
 
 class DataGenerator(tensorflow.keras.utils.Sequence):
@@ -66,18 +71,56 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 		self.input_idx = 0
 		self.on_epoch_end()
 
+		self.idx = 0 
+		self.idx_count = self.batch_size / 48
+		self.previous_idx = 0  
+		self.prev_y_true = None    
+
 	def __len__(self):
 		# 'number of batches per Epoch'
 		return int(np.floor(self.ylen / self.batch_size))
 
 	def __getitem__(self, index):
 
-		# input batch ref updates 
-		# if (index * self.batch_size) / 48 == 0:
-		if (self.batch_size / 48) 
+		# # input batch ref updates 
+		# indexes = []
 
+		# while len(indexes) < self.batch_size: 
 
-		input_indexes = self.input_indexes[self.input_idx * self.batch_size:(self.input_idx +1)* self.batch_size]
+		# 	if self.previous_idx != 0:
+		# 		idxs = [self.idx-1 for x in range(self.previous_idx)]
+		# 		indexes.extend(idxs)
+		# 		self.idx_count -=  (self.previous_idx / 48)
+		# 		self.previous_idx = 0 
+
+		# 	if self.idx_count >= 1:
+		# 		for i in range(int(np.floor(self.idx_count))):
+		# 			idxs = [self.idx for x in range(48)]
+		# 			indexes.extend(idxs)
+		# 			self.idx += 1 
+		# 			self.idx_count -= 1
+
+		# 	if self.idx_count < 1:
+		# 		idx_len = self.idx_count * 48
+		# 		idxs = [self.idx for x in range(int(idx_len))]
+		# 		indexes.extend(idxs)
+		# 		self.idx_count -= (int(idx_len) / 48)
+
+		# 		# how much of the prev index we need to include in the next batch
+		# 		if 48 - int(idx_len) < self.batch_size:
+		# 			self.previous_idx = 48 - int(idx_len)
+		# 		else:
+		# 			self.previous_idx = 0
+
+		# 	if np.round(abs(self.idx_count),4) == 0:            
+		# 		self.idx += 1
+		# 		self.idx_count = self.batch_size / 48 
+
+		# print(indexes)
+		# asset index len matches batch size
+		# assert len(indexes) == self.batch_size, "batch size and constructed indexes length do not match"
+
+		input_indexes = self.input_indexes[index * self.batch_size:(index+1) * self.batch_size]
 		output_indexes = self.output_indexes[index * self.batch_size:(index+1) * self.batch_size]
 
 		# Generate data
@@ -87,25 +130,92 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 
 	def on_epoch_end(self):
 		# set length of indexes for each epoch
-		self.input_indexes = np.arange(self.xlen)
+		self.input_indexes = []
 		self.output_indexes = np.arange(self.ylen)
+
+		# # input batch ref updates 
+		# indexes = []
+		# previous_idx = 0
+		# idx = 0
+		# batch_size = 24
+		# idx_count = batch_size / 48
+
+		# while len(indexes) < self.ylen: 
+
+		# 	if previous_idx != 0:
+		# 		idxs = [idx-1 for x in range(previous_idx)]
+		# 		indexes.extend(idxs)
+		# 		idx_count -=  (previous_idx / 48)
+		# 		previous_idx = 0 
+
+		# 	if idx_count >= 1:
+		# 		for i in range(int(np.floor(idx_count))):
+		# 			idxs = [idx for x in range(48)]
+		# 			indexes.extend(idxs)
+		# 			idx += 1 
+		# 			idx_count -= 1
+
+		# 	if idx_count < 1:
+		# 		idx_len = idx_count * 48
+		# 		idxs = [idx for x in range(int(idx_len))]
+		# 		indexes.extend(idxs)
+		# 		idx_count -= (int(idx_len) / 48)
+
+		# 		# how much of the prev index we need to include in the next batch
+		# 		if 48 - int(idx_len) < batch_size:
+		# 			previous_idx = 48 - int(idx_len)
+		# 		else:
+		# 			previous_idx = 0
+
+		# 	if np.round(abs(idx_count),4) == 0:            
+		# 		idx += 1
+		# 		idx_count = batch_size / 48 
+
+
+		xlist_idxs = np.arange(self.xlen)
+		for idx in xlist_idxs:
+			repeat_idx = [idx] * 48 
+			self.input_indexes.extend(repeat_idx)     
+
 
 		if self.shuffle == True:
 			np.random.shuffle(self.input_indexes)
 
 	def __data_generation(self, input_indexes, output_indexes):
-              
-		f = h5py.File(f"/content/drive/My Drive/Processed_Data/{self.dataset_name}", "r")      
-		X_train1 = f['train_set']['X1_train'][input_indexes]
-		X_train2 = f['train_set']['X2_train'][input_indexes]
-		X_train3 = f['train_set']['X3_train'][output_indexes]
 
+		# X_train1 = np.empty([features.shape[0], features.shape[1], features.shape[2], features.shape[3]])
+		# X_train2 = np.empty((times_in.shape[1], times_in.shape[2]))
+
+		X_train1 = []
+		X_train2 = []
+
+		f = h5py.File(f"/content/drive/My Drive/Processed_Data/{self.dataset_name}", "r")    
+		for i in input_indexes:        
+			X_train1_read = f['train_set']['X1_train'][i]
+			X_train2_read = f['train_set']['X2_train'][i]
+
+			X_train1.append(X_train1_read) 
+			X_train2.append(X_train2_read)
+
+		X_train1 = np.stack(X_train1, axis=0)
+		X_train2 = np.stack(X_train2, axis=0)       
+
+		X_train3 = f['train_set']['X3_train'][output_indexes]
 		y_train = f['train_set']['y_train'][output_indexes]
 
-		# decoder_input = np.empty_like(y_train)  
-		# intial_input = np.average(X_train1, axis=(2,3))
-		# decoder_input[:, 0, 0] = intial_input[:, -1, 0] # '0' index to select last value of previous days generation
-		# decoder_input[:, 1:, :] = y_train[:, :-1, :]
+		X_train3 = np.expand_dims(X_train3, axis=1)
+		y_train = np.expand_dims(y_train, axis=1)
+ 
+
+		if self.prev_y_true is not None:
+			decoder_input = self.prev_y_true
+		else:
+			intial_input = np.average(X_train1, axis=(2,3))
+			decoder_input = intial_input[:, -48, 0]
+			decoder_input = np.expand_dims(decoder_input, axis=1)
+			decoder_input = np.expand_dims(decoder_input, axis=-1)
+
+		self.prev_y_true = decoder_input
 
 		f.close()  
 
@@ -189,8 +299,10 @@ def cnn_encoder(ccn_input):
 	ccn_enc_output = TimeDistributed(Conv2D(64, kernel_size=3, strides=1, activation="relu"))(ccn_enc_output)
 	# ccn_enc_output = BatchNormalization()(ccn_enc_output)  
 	ccn_enc_output = TimeDistributed(Conv2D(128, kernel_size=3, strides=1, activation="relu"))(ccn_enc_output)
+	print(ccn_enc_output.shape)
 
 	ccn_enc_output = Reshape((ccn_enc_output.shape[1], -1, ccn_enc_output.shape[-1]))(ccn_enc_output) 
+	# print(ccn_enc_output.shape)
 
 	ccn_enc_output = K.mean(ccn_enc_output, axis=1) 
     
@@ -224,8 +336,8 @@ predict_3 = Conv1D(1, kernel_size=1, strides=1, padding="same", activation="line
 # define inputs
 x_input = Input(shape=(Tx, height, width, channels))
 times_in = Input(shape=(Tx, times_in_dim))
-times_out = Input(shape=(None, times_out_dim))
-y_prev = Input(shape=(None, 1))
+times_out = Input(shape=(1, times_out_dim))
+y_prev = Input(shape=(1, 1))
 
 
 # call CCN_encoder function
@@ -253,8 +365,8 @@ attn_weights_spat, context_spat = spatial_attn(ccn_enc_output, state_h, state_c)
 context = concatenate([context_spat, context_temp], axis=-1) 
 
 # add known output times
-context = tf.keras.backend.squeeze(context, axis=1)
-context = RepeatVector(Ty)(context)
+# context = tf.keras.backend.squeeze(context, axis=1)
+# context = RepeatVector(Ty)(context)
 decoder_input = concatenate([context, times_out], axis=-1)
 
 # get the previous value for teacher forcing
@@ -387,7 +499,7 @@ for q in quantiles:
 	# model = solarGenation_Model()
 	model.compile(loss = [lambda y,f: defined_loss(q,y,f), None, None], optimizer= optimizer, metrics = ['mae'])
 	print(model.summary())
-	train = model.fit(training_generator, workers=4, epochs = 1)
+	train = model.fit(training_generator, workers=1, epochs = 1, shuffle=True)
 
 	os.mkdir(f'/content/drive/My Drive/solarModels/q_{q}')
 	# model_freeze.save_weights('/content/drive/My Drive/solarGeneration_forecast_weights_freezed' + '_Q_%s' %(q) + '.h5')
