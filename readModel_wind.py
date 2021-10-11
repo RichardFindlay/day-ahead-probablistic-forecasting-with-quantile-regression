@@ -133,68 +133,74 @@ def inference_model():
 	     
 	return deoceder_test_model
 
-decoder_model = inference_model()
+# decoder_model = inference_model()
 
 
 
-# idx = 100
-# # # # # # # # inputs = np.average(test_set['X1_test'], axis=(2,3))
-# dataset_name = 'train_set_V11_withtimefeatures_120hrinput.hdf5'
-# f = h5py.File(f"./Data/solar/Processed_Data/{dataset_name}", "r")
-# input1 = f['train_set']['X1_train'][-2:-1]
-# input2 = f['train_set']['X2_train'][-2:-1]
+# # idx = 100
+# # # # # # # # # inputs = np.average(test_set['X1_test'], axis=(2,3))
+# # dataset_name = 'train_set_V11_withtimefeatures_120hrinput.hdf5'
+# # f = h5py.File(f"./Data/solar/Processed_Data/{dataset_name}", "r")
+# # input1 = f['train_set']['X1_train'][-2:-1]
+# # input2 = f['train_set']['X2_train'][-2:-1]
 
-# input3 = f['train_set']['X3_train'][-48:]
-# outputs = f['train_set']['y_train'][-48:]
+# # input3 = f['train_set']['X3_train'][-48:]
+# # outputs = f['train_set']['y_train'][-48:]
 
-y_prev_int = np.average(input1, axis=(2,3))
+# y_prev_int = np.average(input1, axis=(2,3))
 
-print(outputs.shape)
+# print(outputs.shape)
 
-predictions = []
-
-
-enc_temp_out, encoder_states = enoder_temporal_model.predict([input1, input2])
-enc_spat_out = enoder_spatial_model.predict(input1)
-
-s_state, c_state = encoder_states[0], encoder_states[1]
+# predictions = []
 
 
-for idx in range(len(outputs)):
+# enc_temp_out, encoder_states = enoder_temporal_model.predict([input1, input2])
+# enc_spat_out = enoder_spatial_model.predict(input1)
 
-	if idx == 0:
-		y_prev =  y_prev_int[:, -48, 0]
-		y_prev = np.expand_dims(y_prev, axis=1)
-		y_prev = np.expand_dims(y_prev, axis=-1)
-	# else:
-	# 	y_prev =  outputs[idx-1, :]
-	# 	y_prev = np.expand_dims(y_prev, axis=1)
-	# 	y_prev = np.expand_dims(y_prev, axis=1)
-
-	times_out_single = np.expand_dims(np.expand_dims(input3[idx, :], axis=0),axis=1)
-
-	# out = model.predict([input1, input2, np.expand_dims(np.expand_dims(input3[idx, :], axis=0),axis=1), y_prev])
-	prediction, s_state, c_state, temporal_attention, spatial_attention = decoder_model.predict([y_prev, times_out_single, enc_temp_out, enc_spat_out, s_state, c_state])
-
-	# pred = prediction
-	y_prev = prediction
-	predictions.append(prediction)
+# s_state, c_state = encoder_states[0], encoder_states[1]
 
 
-predictions = np.array(predictions)
+# for idx in range(len(outputs)):
+
+# 	if idx == 0:
+# 		y_prev =  y_prev_int[:, -48, 0]
+# 		y_prev = np.expand_dims(y_prev, axis=1)
+# 		y_prev = np.expand_dims(y_prev, axis=-1)
+# 	# else:
+# 	# 	y_prev =  outputs[idx-1, :]
+# 	# 	y_prev = np.expand_dims(y_prev, axis=1)
+# 	# 	y_prev = np.expand_dims(y_prev, axis=1)
+
+# 	times_out_single = np.expand_dims(np.expand_dims(input3[idx, :], axis=0),axis=1)
+
+# 	# out = model.predict([input1, input2, np.expand_dims(np.expand_dims(input3[idx, :], axis=0),axis=1), y_prev])
+# 	prediction, s_state, c_state, temporal_attention, spatial_attention = decoder_model.predict([y_prev, times_out_single, enc_temp_out, enc_spat_out, s_state, c_state])
+
+# 	# pred = prediction
+# 	y_prev = prediction
+# 	predictions.append(prediction)
 
 
-print(predictions.shape)
+# predictions = np.array(predictions)
 
 
-plt.plot(predictions[:,0,0,0])
-plt.plot(outputs[:,0])
-plt.show()
-
-exit()
+# print(predictions.shape)
 
 
+# plt.plot(predictions[:,0,0,0])
+# plt.plot(outputs[:,0])
+# plt.show()
 
+# exit()
+idx = 200
+
+dataset_name = 'train_set_V11_withtimefeatures_120hrinput.hdf5'
+f = h5py.File(f"./Data/solar/Processed_Data/{dataset_name}", "r")
+input1 = f['train_set']['X1_train'][:idx]
+input2 = f['train_set']['X2_train'][:idx]
+
+input3 = f['train_set']['X3_train'][:idx]
+outputs = f['train_set']['y_train'][:idx]
 
 
 
@@ -590,7 +596,7 @@ np.set_printoptions(threshold=sys.maxsize)
 #cache current working directory of main script
 workingDir = os.getcwd()
 
-model_directory = workingDir + '/Models/solar_models/'
+model_directory = workingDir + '/Models/wind_models/'
 folders = os.listdir(model_directory)
 
 # create dictionary to store predictions from each model
@@ -615,185 +621,209 @@ def QuantileLoss(perc, delta=1e-4):
 
 perc_points = [0.01, 0.25, 0.5, 0.75, 0.99]
 
+
+# previous predictions and states between predictions
+prev_s_state = None
+prev_c_state = None
+prev_prediction = None
+
+
 # loop for each qunatile
-# for folder in folders:
-	# print(folders)
-	# quantile = folder[-3:]
+for folder in folders:
+	print(folders)
+	quantile = folder[-3:]
 	# quantile = 'all'
 
-	# print(f'loading {folder} model...')
+	print(f'loading {folder} model...')
 
-	# model = load_model(f'./Models/solar_models/{folder}/solarGeneration_forecast_MainModel_Q_{quantile}.h5', custom_objects = {'_qloss': QuantileLoss(perc_points), 'attention': attention})
-model = load_model(f'./Models/wind_models/q_0.5/windGeneration_forecast_MainModel_Q_0.5.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention})
-print(model.summary())
-
-
-enoder_temporal_model = load_model(f'./Models/wind_models/q_0.5/windGeneration_encoderModelTemporal_Q_0.5.h5')
-enoder_spatial_model = load_model(f'./Models/wind_models/q_0.5/windGeneration_encoderModelSpatial_Q_0.5.h5')
+	# model = load_model(f'./Models/solar_models/{folder}/windGeneration_forecast_MainModel_Q_{quantile}.h5', custom_objects = {'_qloss': QuantileLoss(perc_points), 'attention': attention})
+	model = load_model(f'./Models/wind_models/{folder}/windGeneration_forecast_MainModel_Q_{quantile}.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention})
+	# print(model.summary())
 
 
-# load data
-
-# # TESTING INPUTS & OUTPUTS
-# inputs_load = open('./Data/solar/Processed_Data/train_set_V3_withtimefeatures_96hrinput__.pkl', "rb")
-# test_set = load(inputs_load)
-# inputs_load.close()
- 
-
-# # TESTING TIMES
-# test_set_load = open("./Data/solar/Processed_Data/time_refsv_V3_withtimefeatures_96hrinput.pkl", "rb") 
-# times = load(test_set_load)
-# test_set_load.close()
-
-# print(test_set['X1_test'].shape)
-# print(test_set['y_test'].shape)
-# #################################################################################################################################################################################
-
-Tx = input2.shape[1]
-Ty = outputs.shape[1]
-height, width, channels = input1.shape[2], input1.shape[3], input1.shape[4]
-times_in_dim = input2.shape[-1]
-times_out_dim = input3.shape[-1]
-n_s = 128
+	enoder_temporal_model = load_model(f'./Models/wind_models/{folder}/windGeneration_encoderModelTemporal_Q_{quantile}.h5')
+	enoder_spatial_model = load_model(f'./Models/wind_models/{folder}/windGeneration_encoderModelSpatial_Q_{quantile}.h5')
 
 
-# define inputs
-x_input = Input(shape=(Tx, height, width, channels))
-times_in = Input(shape=(Tx, times_in_dim))
-times_out = Input(shape=(Ty, times_out_dim))
-s_state0 = Input(shape=(n_s,))
-c_state0 = Input(shape=(n_s,))
-dec_inp = Input(shape=(None, 1))
+	# load data
 
-s_state = s_state0
-c_state = c_state0
+	# # TESTING INPUTS & OUTPUTS
+	# inputs_load = open('./Data/solar/Processed_Data/train_set_V3_withtimefeatures_96hrinput__.pkl', "rb")
+	# test_set = load(inputs_load)
+	# inputs_load.close()
+	 
 
+	# # TESTING TIMES
+	# test_set_load = open("./Data/solar/Processed_Data/time_refsv_V3_withtimefeatures_96hrinput.pkl", "rb") 
+	# times = load(test_set_load)
+	# test_set_load.close()
 
+	# print(test_set['X1_test'].shape)
+	# print(test_set['y_test'].shape)
+	# #################################################################################################################################################################################
 
-# empty dictionaries for decoder models
-decoder_models, enoder_temporal_models, enoder_spatial_models = {}, {}, {}
-
-######## model for inference #############
-def inference_model():
-
-	# LSTM Encoder
-	# enc_model_temp_test = Model(inputs = [x_input, times_in], outputs=[lstm_enc_output])
-	# CNN Encoder
-	# enc_model_spat_test = Model(x_input, ccn_enc_output) 
-
-	# Encoder outputs for setup
-	ccn_enc_output_test = Input(shape=(320, 128))
-	lstm_enc_output_test = Input(shape=(Tx, n_s)) #+ times_in_dim
-
-	# Decoder Input
-	dec_input_test = Input(shape=(1, None))
-	dec_input_test_int = Input(shape=(1, 1)) #+ times_in_dim
-	times_out_test = Input(shape=(1, times_out_dim))
-
-	# context and previous output
-	attn_weights_temp_test, context_temp_test = model.get_layer('temporal_attention')(lstm_enc_output_test, s_state0, c_state0)
-	attn_weights_spat_test, context_spat_test = model.get_layer('spatial_attention')(ccn_enc_output_test, s_state0, c_state0)
-
-	# context & previous output combine
-	context_test = concatenate([context_spat_test, context_temp_test], axis=-1) 
-	dec_input_concat_test = concatenate([context_test, dec_input_test], axis=-1)
-	dec_input_concat_test_int = concatenate([context_test, dec_input_test_int], axis=-1)
-
-	# combine with decoder inputs
-	dec_input_concat_test = concatenate([dec_input_concat_test, times_out_test], axis=-1)
-	dec_input_concat_test_int = concatenate([dec_input_concat_test_int, times_out_test], axis=-1)
-
-	# Decoder inference
-	# if idx == 1:
-	# 	dec_output, s_state, c_state = model.get_layer('lstm_1')(dec_input_concat_test_int, initial_state=[s_state0, c_state0])
-	# else:   
-	# 	dec_output, s_state, c_state = model.get_layer(f'lstm_{idx}')(dec_input_concat_test, initial_state=[s_state0, c_state0])
-
-	dec_output, s_state, c_state = model.get_layer('lstm_1')(dec_input_concat_test, initial_state=[s_state0, c_state0])
-
-	# pred_test = model.get_layer(f'1conv_{idx-1}')(dec_output)
-	# pred_test = model.get_layer(f'2conv_{idx-1}')(pred_test)
-	# pred_test = model.get_layer(f'3conv_{idx-1}')(pred_test)
+	Tx = input2.shape[1]
+	Ty = outputs.shape[1]
+	height, width, channels = input1.shape[2], input1.shape[3], input1.shape[4]
+	times_in_dim = input2.shape[-1]
+	times_out_dim = input3.shape[-1]
+	n_s = 128
 
 
-	pred_test = model.get_layer('conv1d')(dec_output)
-	pred_test = model.get_layer('conv1d_1')(pred_test)
-	pred_test = model.get_layer('conv1d_2')(pred_test)
+	# define inputs
+	x_input = Input(shape=(Tx, height, width, channels))
+	times_in = Input(shape=(Tx, times_in_dim))
+	times_out = Input(shape=(Ty, times_out_dim))
+	s_state0 = Input(shape=(n_s,))
+	c_state0 = Input(shape=(n_s,))
+	dec_inp = Input(shape=(None, 1))
 
-	# Inference Model
-	deoceder_test_model = Model(inputs=[dec_input_test, dec_input_test_int, times_out_test, lstm_enc_output_test, ccn_enc_output_test, s_state0, c_state0], outputs=[pred_test, s_state, c_state, attn_weights_temp_test, attn_weights_spat_test])  
-	     
-	return deoceder_test_model
-
-
-# for idx in range(1, Ty+1):
-# 	decoder_models[f'{idx}'] = inference_model(idx)
-
-decoder_inference = inference_model()
-
-# print(decoder_models)
-# print(decoder_models[f'{idx}'][0])
-# sys.exit()
-print('inference model made')
-
-############_________Inference__________##############
-sample_size = 1000
-main_input = input1
-times_in = input2
-times_out = input3
-y_train = outputs
-s0 = np.zeros((sample_size, n_s))
-c0 = np.zeros((sample_size, n_s))
-
-s_state = s0
-c_state = c0
-predictions = []
-
-# inference run
-enc_temp_out, s_state, c_state  = enoder_temporal_model.predict([main_input, times_in])
-enc_spat_out = enoder_spatial_model.predict(main_input)
-
-# intial decoder input
-dec_input_int = enc_temp_out[:,-1,:]
-dec_input_int = K.expand_dims(dec_input_int, axis=1)
-# dec_input = np.zeros((sample_size, 1, 1))
-
-dec_input = enc_temp_out[:,-1,-1]
-dec_input = K.expand_dims(dec_input, axis=1)
-dec_input = K.expand_dims(dec_input, axis=-1)
-
-dec_input_int = dec_input
-
-for t in range(1, Ty+1):
-
-	# get current 'times out' reference
-	times_out_single = times_out[:,t-1,:]
-	times_out_single = K.expand_dims(times_out_single, axis=1)
-
-    # dec_output, s_state, c_state = decoder(decoder_input, times_out_single, s_state, c_state)
-	prediction, s_state, c_state, temporal_attention, spatial_attention = decoder_inference.predict([dec_input, dec_input_int, times_out_single, enc_temp_out, enc_spat_out, s_state, c_state])
-	# prediction, s_state, c_state, temporal_attention, spatial_attention = decoder_models[f'{t}'].predict([dec_input, dec_input_int, times_out_single, enc_temp_out, enc_spat_out, s_state, c_state])
-	# dec_input = y_train[:,t-1,:]
-	# dec_input =  K.expand_dims(dec_input, axis=1)
-	dec_input = prediction 
-	# dec_input = Reshape((1, 1))(dec_input) 
-
-	# print('dec_input')
-	print(f"shape:{dec_input.shape}")
-
-	# predictions.append(prediction)
-	folder = 'quantile_0.5'
-
-	if t == 1:
-		q_predictions[folder] = prediction
-		enoder_temporal_models[folder] = temporal_attention
-		q_spatial_attentions[folder] = spatial_attention
-	else:
-		q_predictions[folder] = np.concatenate([q_predictions[folder], prediction], axis=1)
-		enoder_temporal_models[folder] = np.concatenate([enoder_temporal_models[folder], temporal_attention], axis=-1)
-		q_spatial_attentions[folder] = np.concatenate([q_spatial_attentions[folder], spatial_attention], axis=-1)
+	s_state = s_state0
+	c_state = c_state0
 
 
+
+	# empty dictionaries for decoder models
+	decoder_models, enoder_temporal_models, enoder_spatial_models = {}, {}, {}
+
+	######## model for inference #############
+	def inference_model():
+
+		# LSTM Encoder
+		# enc_model_temp_test = Model(inputs = [x_input, times_in], outputs=[lstm_enc_output])
+		# CNN Encoder
+		# enc_model_spat_test = Model(x_input, ccn_enc_output) 
+
+		# Encoder outputs for setup
+		ccn_enc_output_test = Input(shape=(320, 128))
+		lstm_enc_output_test = Input(shape=(Tx, n_s)) #+ times_in_dim
+
+		# Decoder Input
+		dec_input_test = Input(shape=(1, None))
+		dec_input_test_int = Input(shape=(1, 1)) #+ times_in_dim
+		times_out_test = Input(shape=(1, times_out_dim))
+
+		# context and previous output
+		attn_weights_temp_test, context_temp_test = model.get_layer('temporal_attention')(lstm_enc_output_test, s_state0, c_state0)
+		attn_weights_spat_test, context_spat_test = model.get_layer('spatial_attention')(ccn_enc_output_test, s_state0, c_state0)
+
+		# context & previous output combine
+		context_test = concatenate([context_spat_test, context_temp_test], axis=-1) 
+		dec_input_concat_test = concatenate([context_test, dec_input_test], axis=-1)
+		dec_input_concat_test_int = concatenate([context_test, dec_input_test_int], axis=-1)
+
+		# combine with decoder inputs
+		dec_input_concat_test = concatenate([dec_input_concat_test, times_out_test], axis=-1)
+		dec_input_concat_test_int = concatenate([dec_input_concat_test_int, times_out_test], axis=-1)
+
+		# Decoder inference
+		# if idx == 1:
+		# 	dec_output, s_state, c_state = model.get_layer('lstm_1')(dec_input_concat_test_int, initial_state=[s_state0, c_state0])
+		# else:   
+		# 	dec_output, s_state, c_state = model.get_layer(f'lstm_{idx}')(dec_input_concat_test, initial_state=[s_state0, c_state0])
+
+		dec_output, s_state, c_state = model.get_layer('lstm_1')(dec_input_concat_test, initial_state=[s_state0, c_state0])
+
+		# pred_test = model.get_layer(f'1conv_{idx-1}')(dec_output)
+		# pred_test = model.get_layer(f'2conv_{idx-1}')(pred_test)
+		# pred_test = model.get_layer(f'3conv_{idx-1}')(pred_test)
+
+
+		pred_test = model.get_layer('conv1d')(dec_output)
+		pred_test = model.get_layer('conv1d_1')(pred_test)
+		pred_test = model.get_layer('conv1d_2')(pred_test)
+
+		# Inference Model
+		deoceder_test_model = Model(inputs=[dec_input_test, times_out_test, lstm_enc_output_test, ccn_enc_output_test, s_state0, c_state0], outputs=[pred_test, s_state, c_state, attn_weights_temp_test, attn_weights_spat_test])  
+		     
+		return deoceder_test_model
+
+
+	# for idx in range(1, Ty+1):
+	# 	decoder_models[f'{idx}'] = inference_model(idx)
+
+	decoder_inference = inference_model()
+
+	# print(decoder_models)
+	# print(decoder_models[f'{idx}'][0])
+	# sys.exit()
+	print('inference model made')
+
+	############_________Inference__________##############
+	# sample_size = 1000
+
+	for sample in range(main_input.shape[0]):
+
+		main_input = input1[sample:sample+1]
+		times_in = input2[sample:sample+1]
+		times_out = input3[sample:sample+1]
+		y_train = outputs[sample:sample+1]
+		s0 = np.zeros((1, n_s))
+		c0 = np.zeros((1, n_s))
+
+		s_state = s0
+		c_state = c0
+		predictions = []
+
+		# inference run
+		enc_temp_out, s_state, c_state  = enoder_temporal_model.predict([main_input, times_in])
+		enc_spat_out = enoder_spatial_model.predict(main_input)
+
+		# intial decoder input
+		# dec_input_int = enc_temp_out[:,-1,:]
+		# dec_input_int = K.expand_dims(dec_input_int, axis=1)
+		# dec_input = np.zeros((sample_size, 1, 1))
+
+		y_prev = K.mean(main_input, axis=(2,3))
+		y_prev = y_prev[:, -48, 0]
+		# dec_input = enc_temp_out[:,-1,-1]
+		dec_input = K.expand_dims(y_prev, axis=1)
+		dec_input = K.expand_dims(dec_input, axis=-1)
+
+		# use encoder states or previous prediction
+		if prev_prediction == None:
+			continue
+		else:
+			y_prev = prev_prediction
+			s_state = prev_s_state
+			c_state = prev_c_state
+
+		for t in range(1, Ty+1):
+
+			# get current 'times out' reference
+			times_out_single = times_out[:,t-1,:]
+			times_out_single = K.expand_dims(times_out_single, axis=1)
+
+		    # dec_output, s_state, c_state = decoder(decoder_input, times_out_single, s_state, c_state)
+			prediction, s_state, c_state, temporal_attention, spatial_attention = decoder_inference.predict([dec_input, times_out_single, enc_temp_out, enc_spat_out, s_state, c_state])
+			# prediction, s_state, c_state, temporal_attention, spatial_attention = decoder_models[f'{t}'].predict([dec_input, dec_input_int, times_out_single, enc_temp_out, enc_spat_out, s_state, c_state])
+			# dec_input = y_train[:,t-1,:]
+			# dec_input =  K.expand_dims(dec_input, axis=1)
+			dec_input = prediction 
+			# dec_input = Reshape((1, 1))(dec_input) 
+
+			# print('dec_input')
+			print(f"shape:{dec_input.shape}")
+
+			# predictions.append(prediction)
+			# folder = 'quantile_0.5'
+
+			if t == 1:
+				q_predictions[folder] = prediction
+				enoder_temporal_models[folder] = temporal_attention
+				q_spatial_attentions[folder] = spatial_attention
+			else:
+				q_predictions[folder] = np.concatenate([q_predictions[folder], prediction], axis=1)
+				enoder_temporal_models[folder] = np.concatenate([enoder_temporal_models[folder], temporal_attention], axis=-1)
+				q_spatial_attentions[folder] = np.concatenate([q_spatial_attentions[folder], spatial_attention], axis=-1)
+
+		prev_s_state = s_state
+		prev_c_state = c_state
+		prev_prediction = prediction
+
+		# final_predictions.append()
+
+exit()
 idx = 40
 # print(q_predictions[folder][50])
 # save some data for debugging
@@ -801,8 +831,9 @@ idx = 40
 # 	dump(q_predictions, predictions)
 
 
-# plt.plot(q_predictions['quantile_0.1'][idx, :, 0])
+# plt.plot(q_predictions['quantile_0.1'][idx:idx+5, :, 0].flatten())
 plt.plot(q_predictions['quantile_0.5'][idx:idx+5, :, 0].flatten())
+# plt.plot(q_predictions['quantile_0.9'][idx:idx+5, :, 0].flatten())
 # plt.plot(q_predictions['quantile_0.9'][idx:idx+5, :, 0].flatten(), 'g')
 # # plt.plot(q_predictions['quantile_0.2'][idx, :, 0], 'k')
 plt.plot(outputs[idx:idx+5, :, 0].flatten())
