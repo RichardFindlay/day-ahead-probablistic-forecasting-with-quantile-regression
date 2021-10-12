@@ -36,49 +36,49 @@ import sys
 import h5py
 
 
-ref = 0
+# ref = 0
 
-start_ref = ref*48
-end_ref = 	(ref+1)*48
+# start_ref = ref*48
+# end_ref = 	(ref+1)*48
 
-dataset_name = 'train_set_V3_withtimefeatures_96hrinput_float32.hdf5'
-f = h5py.File(f"./Data/wind/Processed_Data/{dataset_name}", "r")
-input1 = f['train_set']['X1_train'][ref:ref+1]
-input2 = f['train_set']['X2_train'][ref:ref+1]
+# dataset_name = 'train_set_V3_withtimefeatures_96hrinput_float32.hdf5'
+# f = h5py.File(f"./Data/wind/Processed_Data/{dataset_name}", "r")
+# input1 = f['train_set']['X1_train'][ref:ref+1]
+# input2 = f['train_set']['X2_train'][ref:ref+1]
 
-input3 = f['train_set']['X3_train'][start_ref:end_ref]
-outputs = f['train_set']['y_train'][start_ref:end_ref]
+# input3 = f['train_set']['X3_train'][start_ref:end_ref]
+# outputs = f['train_set']['y_train'][start_ref:end_ref]
 
 
-model = load_model(f'./Models/wind_models/q_0.5/windGeneration_forecast_MainModel_Q_0.5.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention})
-# model2 = load_model(f'./Models/wind_models/q_0.9/windGeneration_forecast_MainModel_Q_0.9.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention})
-enoder_temporal_model = load_model(f'./Models/wind_models/q_0.5/windGeneration_encoderModelTemporal_Q_0.5.h5')
-enoder_spatial_model = load_model(f'./Models/wind_models/q_0.5/windGeneration_encoderModelSpatial_Q_0.5.h5')
+# model = load_model(f'./Models/wind_models/q_0.5/windGeneration_forecast_MainModel_Q_0.5.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention})
+# # model2 = load_model(f'./Models/wind_models/q_0.9/windGeneration_forecast_MainModel_Q_0.9.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention})
+# enoder_temporal_model = load_model(f'./Models/wind_models/q_0.5/windGeneration_encoderModelTemporal_Q_0.5.h5')
+# enoder_spatial_model = load_model(f'./Models/wind_models/q_0.5/windGeneration_encoderModelSpatial_Q_0.5.h5')
 
-# print(model1.summary())
-# # exit()
+# # print(model1.summary())
+# # # exit()
 
-# # # # a  = model1.layers[10].get_config()
-# # # # a = model1.get_layer('conv1d_94').get_config()
-# # # # print(K.eval(model1.optimizer.lr))
-# # # # print(a)
+# # # # # a  = model1.layers[10].get_config()
+# # # # # a = model1.get_layer('conv1d_94').get_config()
+# # # # # print(K.eval(model1.optimizer.lr))
+# # # # # print(a)
 
-Tx = input2.shape[1]
-Ty = outputs.shape[1]
-height, width, channels = input1.shape[2], input1.shape[3], input1.shape[4]
-times_in_dim = input2.shape[-1]
-times_out_dim = input3.shape[-1]
-n_s = 128
+# Tx = input2.shape[1]
+# Ty = outputs.shape[1]
+# height, width, channels = input1.shape[2], input1.shape[3], input1.shape[4]
+# times_in_dim = input2.shape[-1]
+# times_out_dim = input3.shape[-1]
+# n_s = 128
 
-x_input = Input(shape=(Tx, height, width, channels))
-times_in = Input(shape=(Tx, times_in_dim))
-times_out = Input(shape=(Ty, times_out_dim))
-s_state0 = Input(shape=(n_s,))
-c_state0 = Input(shape=(n_s,))
-dec_inp = Input(shape=(None, 1))
+# x_input = Input(shape=(Tx, height, width, channels))
+# times_in = Input(shape=(Tx, times_in_dim))
+# times_out = Input(shape=(Ty, times_out_dim))
+# s_state0 = Input(shape=(n_s,))
+# c_state0 = Input(shape=(n_s,))
+# dec_inp = Input(shape=(None, 1))
 
-s_state = s_state0
-c_state = c_state0
+# s_state = s_state0
+# c_state = c_state0
 
 
 def inference_model():
@@ -192,15 +192,7 @@ def inference_model():
 # plt.show()
 
 # exit()
-idx = 200
 
-dataset_name = 'train_set_V11_withtimefeatures_120hrinput.hdf5'
-f = h5py.File(f"./Data/solar/Processed_Data/{dataset_name}", "r")
-input1 = f['train_set']['X1_train'][:idx]
-input2 = f['train_set']['X2_train'][:idx]
-
-input3 = f['train_set']['X3_train'][:idx]
-outputs = f['train_set']['y_train'][:idx]
 
 
 
@@ -250,25 +242,86 @@ outputs = f['train_set']['y_train'][:idx]
 # plt.plot(f['train_set']['y_train'][b, :, 0].flatten(), 'k')
 # plt.show()
 
+def correlation_analysis(X, Y):
+
+	rs = np.empty((X.shape[0], 1))
+	#caclulate 'R^2' for each feature - average over all days
+	for l in range(X.shape[0]):
+		slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(X[l,:,0], Y[l,:,0])
+		rs[l, 0] =r_value**2
+		
+
+	print('mean' + '\n R**2: %s' %rs.mean())
+	print('max' + '\n R**2: %s' %rs.max())
+	print('min' + '\n R**2: %s' %rs.min())
+
+	#get best
+	best_fit = np.argmax(rs, axis=0)
+	worst_fit = np.argmin(rs, axis=0)
+	print(best_fit)
+	print(worst_fit)
+	# print(X[best_fit,:,0])
+
+	return 
+
+
 
 
 # exit()
+idx = 10
+set_type = "test"
+
+dataset_name = 'train_set_V2_withtimefeatures_96hrinput_float32.hdf5'
+f = h5py.File(f"./Data/wind/Processed_Data/{dataset_name}", "r")
+input1 = f[f'{set_type}_set'][f'X1_{set_type}'][:idx]
+input2 = f[f'{set_type}_set'][f'X2_{set_type}'][:idx]
+
+input3 = f[f'{set_type}_set'][f'X3_{set_type}'][:idx]
+outputs = f[f'{set_type}_set'][f'y_{set_type}'][:idx]
 
 
 
 
 
 
+# ns = 128
+# s_state0 = np.zeros((idx, ns))
+# c_state0 = np.zeros((idx, ns))
+
+
+# # model1 = load_model(f'./Models/wind_models/q_0.1/windGeneration_forecast_MainModel_Q_0.1.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention})
+# model2 = load_model(f'./Models/wind_models/q_0.5/windGeneration_forecast_MainModel_Q_0.5.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention})
+# # model3 = load_model(f'./Models/wind_models/q_0.9/windGeneration_forecast_MainModel_Q_0.9.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention})
+
+
+# # output1 = model1.predict([input1, input2, input3, s_state0, c_state0, outputs])
+# output2 = model2.predict([input1, input2, input3, s_state0, c_state0, outputs])
+# # output3 = model3.predict([input1, input2, input3, s_state0, c_state0, outputs])
+
+
+# # test1 = output1[0]
+# test2 = output2[0]
+# # test3 = output3[0]
 
 
 
+# idx = 2
+# # plt.plot(test1[idx:idx+7].flatten(), color='tab:red', linestyle='--')
+# plt.plot(test2[idx:idx+7].flatten(), color='tab:red', linestyle='--')
+# # plt.plot(test3[idx:idx+7].flatten(), color='tab:red', linestyle='--')
+
+# plt.plot(f[f'{set_type}_set'][f'y_{set_type}'][idx:idx+7, :, 0].flatten(), 'k')
+
+# plt.show()
+
+
+# print(test2.shape)
+
+# correlation_analysis(test2, f[f'{set_type}_set'][f'y_{set_type}'][:, :, 0:1])
 
 
 
-
-
-
-
+# exit()
 
 
 
@@ -298,27 +351,7 @@ outputs = f['train_set']['y_train'][:idx]
 
 
 
-def correlation_analysis(X, Y):
 
-	rs = np.empty((X.shape[0], 1))
-	#caclulate 'R^2' for each feature - average over all days
-	for l in range(X.shape[0]):
-		slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(X[l,:,0], Y[l,:,0])
-		rs[l, 0] =r_value**2
-		
-
-	print('mean' + '\n R**2: %s' %rs.mean())
-	print('max' + '\n R**2: %s' %rs.max())
-	print('min' + '\n R**2: %s' %rs.min())
-
-	#get best
-	best_fit = np.argmax(rs, axis=0)
-	worst_fit = np.argmin(rs, axis=0)
-	print(best_fit)
-	print(worst_fit)
-	# print(X[best_fit,:,0])
-
-	return 
 
 
 
@@ -622,11 +655,10 @@ def QuantileLoss(perc, delta=1e-4):
 perc_points = [0.01, 0.25, 0.5, 0.75, 0.99]
 
 
-# previous predictions and states between predictions
-prev_s_state = None
-prev_c_state = None
-prev_prediction = None
 
+
+
+final_predictions = {}
 
 # loop for each qunatile
 for folder in folders:
@@ -643,6 +675,11 @@ for folder in folders:
 
 	enoder_temporal_model = load_model(f'./Models/wind_models/{folder}/windGeneration_encoderModelTemporal_Q_{quantile}.h5')
 	enoder_spatial_model = load_model(f'./Models/wind_models/{folder}/windGeneration_encoderModelSpatial_Q_{quantile}.h5')
+
+	# previous predictions and states between predictions
+	prev_s_state = None
+	prev_c_state = None
+	prev_prediction = None
 
 
 	# load data
@@ -752,7 +789,8 @@ for folder in folders:
 	############_________Inference__________##############
 	# sample_size = 1000
 
-	for sample in range(main_input.shape[0]):
+	for sample in range(input1.shape[0]):
+		# print(sample)
 
 		main_input = input1[sample:sample+1]
 		times_in = input2[sample:sample+1]
@@ -774,19 +812,19 @@ for folder in folders:
 		# dec_input_int = K.expand_dims(dec_input_int, axis=1)
 		# dec_input = np.zeros((sample_size, 1, 1))
 
-		y_prev = K.mean(main_input, axis=(2,3))
-		y_prev = y_prev[:, -48, 0]
-		# dec_input = enc_temp_out[:,-1,-1]
-		dec_input = K.expand_dims(y_prev, axis=1)
-		dec_input = K.expand_dims(dec_input, axis=-1)
+		# y_prev = np.mean(main_input, axis=(2,3))
+		# y_prev = y_prev[:, -48, 0]
+		dec_input = enc_temp_out[:,-1,-1]
+		dec_input = np.expand_dims(dec_input, axis=1)
+		dec_input = np.expand_dims(dec_input, axis=-1)
 
 		# use encoder states or previous prediction
 		if prev_prediction == None:
-			continue
+			print('first pass')
 		else:
 			y_prev = prev_prediction
-			s_state = prev_s_state
-			c_state = prev_c_state
+			# s_state = prev_s_state
+			# c_state = prev_c_state
 
 		for t in range(1, Ty+1):
 
@@ -797,9 +835,9 @@ for folder in folders:
 		    # dec_output, s_state, c_state = decoder(decoder_input, times_out_single, s_state, c_state)
 			prediction, s_state, c_state, temporal_attention, spatial_attention = decoder_inference.predict([dec_input, times_out_single, enc_temp_out, enc_spat_out, s_state, c_state])
 			# prediction, s_state, c_state, temporal_attention, spatial_attention = decoder_models[f'{t}'].predict([dec_input, dec_input_int, times_out_single, enc_temp_out, enc_spat_out, s_state, c_state])
-			# dec_input = y_train[:,t-1,:]
-			# dec_input =  K.expand_dims(dec_input, axis=1)
-			dec_input = prediction 
+			dec_input = outputs[sample:sample+1,t-1,:]
+			dec_input =  K.expand_dims(dec_input, axis=1)
+			# dec_input = prediction 
 			# dec_input = Reshape((1, 1))(dec_input) 
 
 			# print('dec_input')
@@ -821,22 +859,35 @@ for folder in folders:
 		prev_c_state = c_state
 		prev_prediction = prediction
 
-		# final_predictions.append()
+		# print('**************************')
+		# print(q_predictions[folder].shape)
+		if sample == 0:
+			final_predictions[folder] = q_predictions[folder]
+		else:
+			final_predictions[folder] = np.concatenate([final_predictions[folder], q_predictions[folder]], axis=0)
 
-exit()
-idx = 40
+
+
+
+
+print(final_predictions.keys())
+print(final_predictions[folder].shape)
+
+
+
+
+# exit()
+idx = 2
 # print(q_predictions[folder][50])
 # save some data for debugging
 # with open("./Models/solar_models/predictions.pkl", "wb") as predictions:
 # 	dump(q_predictions, predictions)
 
 
-# plt.plot(q_predictions['quantile_0.1'][idx:idx+5, :, 0].flatten())
-plt.plot(q_predictions['quantile_0.5'][idx:idx+5, :, 0].flatten())
-# plt.plot(q_predictions['quantile_0.9'][idx:idx+5, :, 0].flatten())
-# plt.plot(q_predictions['quantile_0.9'][idx:idx+5, :, 0].flatten(), 'g')
-# # plt.plot(q_predictions['quantile_0.2'][idx, :, 0], 'k')
-plt.plot(outputs[idx:idx+5, :, 0].flatten())
+# plt.plot(final_predictions['q_0.1'][idx:idx+5, :, 0].flatten())
+plt.plot(final_predictions['q_0.5'][idx:idx+7, :, 0].flatten())
+# plt.plot(final_predictions['q_0.9'][idx:idx+5, :, 0].flatten())
+plt.plot(outputs[idx:idx+7, :, 0].flatten())
 plt.show()
 
 
