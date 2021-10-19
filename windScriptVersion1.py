@@ -291,7 +291,7 @@ def format_data_into_timesteps(X1, X2, X3, Y, input_seq_size, output_seq_size, i
 
 
 #function to process data in train and test sets
-def data_processing(filepaths, labels):
+def data_processing(filepaths, labels, input_seq_size, output_seq_size):
 
 	#get dictionary keys
 	keys = list(filepaths.keys())
@@ -473,6 +473,20 @@ def data_processing(filepaths, labels):
 	broadcaster = broadcaster * np.expand_dims(np.expand_dims(labels, axis =2), axis=2)
 	feature_array = np.concatenate((broadcaster, feature_array), axis = -1)
 
+
+	# remove first input sequence length from output sequence
+	remove_out = np.arange(input_seq_size)
+	labels = np.delete(labels, remove_out)
+	output_times = np.delete(output_times, remove_out)
+
+	# remove last output sequence from inputs
+
+
+
+	print(labels.shape)
+	print(feature_array.shape)
+	exit()
+
 	# split train and test data
 	test_set_percentage = 0.1
 	test_split = int(len(feature_array) * (1 - test_set_percentage))
@@ -541,7 +555,7 @@ windGenLabels = pd.read_csv('./Data/wind/Raw_Data/HH_windGen_V2.csv', parse_date
 
 
 
-dataset, time_refs = data_processing(filepaths = filepaths, labels = windGenLabels)
+dataset, time_refs = data_processing(filepaths = filepaths, labels = windGenLabels, input_seq_size = 168, output_seq_size = 48)
 # train_set, test_set, time_refs 
 
 # print(*[f'{key}: {train_set[key].shape}' for key in train_set.keys()], sep='\n')
