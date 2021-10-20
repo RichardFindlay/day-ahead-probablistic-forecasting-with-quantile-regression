@@ -473,50 +473,59 @@ def data_processing(filepaths, labels, input_seq_size, output_seq_size):
 	broadcaster = broadcaster * np.expand_dims(np.expand_dims(labels, axis =2), axis=2)
 	feature_array = np.concatenate((broadcaster, feature_array), axis = -1)
 
-
 	# remove first input sequence length from output sequence
-	remove_out = np.arange(input_seq_size)
-	labels = np.delete(labels, remove_out)
-	output_times = np.delete(output_times, remove_out)
+	labels = labels[input_seq_size:]
+	output_times = output_times[input_seq_size:]
 
 	# remove last output sequence from inputs
+	input_times = input_times[:-output_seq_size]
+	feature_array = feature_array[:-output_seq_size]
 
-
-
-	print(labels.shape)
-	print(feature_array.shape)
-	exit()
+	# remove deleted times from time refs
+	in_times = label_times[:-output_seq_size]
+	label_times = label_times[input_seq_size:]
 
 	# split train and test data
+	num_seq = len(labels) - (output_seq_size - 1)
 	test_set_percentage = 0.1
-	test_split = int(len(feature_array) * (1 - test_set_percentage))
+
+
+	test_split_seq = int(np.floor(num_seq * (1 - test_set_percentage)))
+	print(test_split_seq)
+	
+
+	input_test_seq =  test_split_seq + (input_seq_size - 1)
+	output_test_seq = test_split_seq + (output_seq_size - 1)
 
 	# create dataset
 	dataset = {
 		'train_set' : {
-			'X1_train': feature_array[:test_split],
-			'X2_train': input_times[:test_split], # input time features
-			'X3_train': output_times[:test_split], # output time features
-			'y_train': labels[:test_split] 
+			'X1_train': feature_array[:input_test_seq],
+			'X2_train': input_times[:input_test_seq], # input time features
+			'X3_train': output_times[:output_test_seq], # output time features
+			'y_train': labels[:output_test_seq] 
 			},
 		'test_set' : {
-			'X1_test': feature_array[test_split:],
-			'X2_test': input_times[test_split:], 
-			'X3_test': output_times[test_split:],
-			'y_test': labels[test_split:] 
+			'X1_test': feature_array[input_test_seq:],
+			'X2_test': input_times[input_test_seq:], 
+			'X3_test': output_times[output_test_seq:],
+			'y_test': labels[output_test_seq:] 
 			}
 		}
 
 	time_refs = {
-		'input_times_train': in_times[:test_split],
-		'input_times_test': in_times[test_split:], 
-		'output_times_train': label_times[:test_split],
-		'output_times_test': label_times[test_split:]
+		'input_times_train': in_times[:input_test_seq],
+		'input_times_test': in_times[input_test_seq:], 
+		'output_times_train': label_times[:output_test_seq],
+		'output_times_test': label_times[output_test_seq:]
 	}
 
+	# print(dataset['train_set']['X1_train'].shape)
+	# print(dataset['test_set']['X1_test'].shape)
+	# exit()
 
-	print(feature_array.shape)
-	print(labels.shape)
+	# print(feature_array.shape)
+	# print(labels.shape)
 	# print(f'input: {in_times[-1]}')
 	# print(f'output: {label_times[-1]}')
 
@@ -555,7 +564,7 @@ windGenLabels = pd.read_csv('./Data/wind/Raw_Data/HH_windGen_V2.csv', parse_date
 
 
 
-dataset, time_refs = data_processing(filepaths = filepaths, labels = windGenLabels, input_seq_size = 168, output_seq_size = 48)
+dataset, time_refs = data_processing(filepaths = filepaths, labels = windGenLabels, input_seq_size = 240, output_seq_size = 48)
 # train_set, test_set, time_refs 
 
 # print(*[f'{key}: {train_set[key].shape}' for key in train_set.keys()], sep='\n')
