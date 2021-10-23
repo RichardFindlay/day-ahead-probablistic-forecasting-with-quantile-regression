@@ -53,6 +53,9 @@ print('size parameters loaded')
 input_seq_size = 240
 output_seq_size = 48
 
+print(x_len)
+print(y_len)
+
 f.close()
 
 ###########################################_____DATA_GENERATOR_____#################################################
@@ -68,19 +71,26 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 		self.shuffle = shuffle
 		self.xlen = x_length
 		self.ylen = y_length 
+		self.index_ref = 0         
 		self.on_epoch_end()
 
 	def __len__(self):
-		# 'number of batches per Epoch'
-		return int(np.floor(self.xlen / (self.batch_size + (input_seq_size-1))))
+		# 'number of batches per Epoch'      
+		# print(int(np.floor((self.xlen - (input_seq_size-1)) / self.batch_size)))
+		return int(np.floor((self.xlen - (input_seq_size-1)) / self.batch_size))
 
 	def __getitem__(self, index):
 
-		input_indexes = self.input_indexes[index*(self.batch_size + (input_seq_size-1)) :(index+1)*(self.batch_size + (input_seq_size-1))]
-		output_indexes = self.output_indexes[index*(self.batch_size + (input_seq_size-1)):(index+1)*(self.batch_size + (input_seq_size-1))]
+		# print(index)        
+
+		input_indexes = self.input_indexes[(index*self.batch_size) : (index*self.batch_size)+ (self.batch_size + (input_seq_size-1))]
+		output_indexes = self.output_indexes[(index*self.batch_size) : (index*self.batch_size) + (self.batch_size + (output_seq_size-1))]
+
+		# self.index_ref_in += self.batch_size + (input_seq_size-1)
+		# self.index_ref_out += self.batch_size + (output_seq_size-1)
 
 		# Generate data
-		(X_train1, X_train2, X_train3, s0, c0), y_train = self.__data_generation(input_indexes, output_indexes)
+		(X_train1, X_train2, X_train3, s0, c0), y_train = self.__data_generation(input_indexes, output_indexes)        
 
 		return (X_train1, X_train2, X_train3, s0, c0), (y_train, [], []) # pass empty training outputs to extract extract attentions
 
@@ -128,12 +138,18 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 		y_train = f['train_set']['y_train'][output_indexes]
 		# decoder_input = f['train_set']['y_train'][output_indexes]
 		f.close()  
+
+		# print(X_train1.shape)
 		
         # convert to sequence data
 		X_train1, X_train2, X_train3, y_train = self.to_sequence(X_train1, X_train2, X_train3, y_train)
 
 		s0 = np.zeros((self.batch_size, n_s))
 		c0 = np.zeros((self.batch_size, n_s))
+
+		# print(X_train1.shape)
+		# print(y_train.shape)
+
      
 		return (X_train1, X_train2, X_train3, s0, c0), y_train
 
