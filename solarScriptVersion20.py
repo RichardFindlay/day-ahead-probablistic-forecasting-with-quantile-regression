@@ -8,7 +8,7 @@ import sys
 import keras
 from collections import OrderedDict
 from datetime import datetime
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 import scipy
 from keras import Model
 from keras.layers import Input, concatenate, Bidirectional, ConvLSTM2D, Flatten, Dropout, Dense, BatchNormalization, MaxPooling3D, TimeDistributed, Flatten, RepeatVector, LSTM, Conv1D
@@ -22,6 +22,8 @@ import time
 import tensorflow as tf
 
 import h5py
+
+
 
 # os.environ['TF_CPP_MIN_LOG_LEVEL']='2' #hide tensorflow error 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -73,6 +75,7 @@ def ncExtract(directory): #will append files if multiple present
 		datesVar = netCDF4.num2date(timeVar[:], timeVar.units, timeVar.calendar)
 		readVariables['time'] = np.concatenate([readVariables['time'],datesVar])
 
+
 	#read lat and long
 	readVariables['latitude'] = ncfile.variables['latitude'][:]
 	readVariables['longitude'] = ncfile.variables['longitude'][:]
@@ -107,6 +110,7 @@ def lv_filter(data):
 def interpolate_4d(array):
 	interp_array = np.empty((array.shape[0]*2 , array.shape[1], array.shape[2], array.shape[3]))
 	for ivar in range(array.shape[-1]):
+		print(f'checky check check: {ivar}')
 		for interp_idx in range(interp_array.shape[0]):
 			if (interp_idx % 2 == 0) or (int(np.ceil(interp_idx/2)) == array.shape[0]): 
 				interp_array[interp_idx, :, :, ivar] = array[int(np.floor(interp_idx/2)), :, :, ivar]
@@ -123,20 +127,6 @@ def interpolate_time(time_array):
 	return interp_time
 
 
-# function to check for missing nans - if so delete day
-def remove_nan_days(x_in, y_out): # assume both are
-	# check for missing vals in outputs
-	idx = 0
-	for i in range(len(y_out)):
-		if y_out[idx].isnull().values.any() or x_in[idx].isnull().values.any():
-			del x_in[idx]
-			del y_out[idx]
-			idx -= 1
-		idx += 1 
-
-	return x_in, y_out
-
-
 
 
 def format_data_into_timesteps(X1, X2, X3, Y, input_seq_size, output_seq_size, input_times_reference, output_times_reference):
@@ -145,8 +135,7 @@ def format_data_into_timesteps(X1, X2, X3, Y, input_seq_size, output_seq_size, i
 	#number of timesteps to be included in each sequence
 	seqX1, seqX2, seqX3, seqY_in, seqY, in_times, out_times = [], [], [], [], [], [], []
 	input_start, input_end = 0, 0
-	output_start = input_seq_size + output_seq_size 
-	# output_start = int(input_seq_size*2) - output_seq_size
+	output_start = input_seq_size - output_seq_size 
 	# input_seq_size - output_seq_size - nested
 	# input_start + input_seq_size - ahead
 
@@ -177,20 +166,6 @@ def format_data_into_timesteps(X1, X2, X3, Y, input_seq_size, output_seq_size, i
 			output_start += output_seq_size 
 			continue
 
-		# #define sequences
-		# input_end = input_start + input_seq_size
-		# output_end = output_start + output_seq_size
-
-		# #add condition to ommit any days with nan values
-		# if np.isnan(X1[input_start:input_end]).any() == True or np.isnan(X2[input_start:input_end]).any() == True or np.isnan(Y[input_start:input_end]).any() == True:
-		# 	input_start += input_seq_size 
-		# 	output_start += int(input_seq_size *2)
-		# 	continue
-		# elif np.isnan(X3[output_start:output_end]).any() == True or np.isnan(Y[output_start:output_end]).any() == True:
-		# 	input_start += int(output_seq_size /2)
-		# 	output_start += output_seq_size 
-		# 	continue
-
 		x1[:,:,:,:] = X1[input_start:input_end]
 		seqX1.append(x1)
 		x2[:,:] = X2[input_start:input_end]
@@ -198,7 +173,7 @@ def format_data_into_timesteps(X1, X2, X3, Y, input_seq_size, output_seq_size, i
 		x3[:,:] = X3[output_start:output_end]
 		seqX3.append(x3)
 		y_in[:,:] = Y[input_start:input_end]
-		# y_in[-48:,:] = 0 # elinimate metered output - only NWP available for prediction day
+		y_in[-48:,:] = 0 # elinimate metered output - only NWP available for prediction day
 		seqY_in.append(y_in)
 		y[:] = Y[output_start:output_end]
 		seqY.append(y)
@@ -208,15 +183,8 @@ def format_data_into_timesteps(X1, X2, X3, Y, input_seq_size, output_seq_size, i
 		out_time[:] = np.squeeze(output_times_reference[output_start:output_end])
 		out_times.append(out_time)
 		
-
-		# input_start += output_seq_size  # divide by 2 to compensate for 24hr period (edited)
-		# output_start += output_seq_size
-
-		input_start += 1  # divide by 2 to compensate for 24hr period (edited)
-		output_start += 1
-
-		# input_start += int(output_seq_size / 2)  # divide by 2 to compensate for 24hr period (edited)
-		# output_start += output_seq_size
+		input_start += output_seq_size  # divide by 2 to compensate for 24hr period (edited)
+		output_start += output_seq_size
 
 	print('converting to float32 numpy arrays')
 	seqX1 = np.array(seqX1, dtype=np.float32)
@@ -260,24 +228,23 @@ def format_data_into_timesteps(X1, X2, X3, Y, input_seq_size, output_seq_size, i
 	}
 
 
+	#create dictionary for training data
+	train_set = {
+		'X1_train': seqX1[:test_split],
+		'X2_train': seqX2[:test_split], # input time features
+		'X3_train': seqX3[:test_split], # output time features
+		# 'y_in_train': seqY_in[:test_split],
+		'y_train': seqY[:test_split] 
+	}
 
-	# #create dictionary for training data
-	# train_set = {
-	# 	'X1_train': seqX1[:test_split],
-	# 	'X2_train': seqX2[:test_split], # input time features
-	# 	'X3_train': seqX3[:test_split], # output time features
-	# 	# 'y_in_train': seqY_in[:test_split],
-	# 	'y_train': seqY[:test_split] 
-	# }
-
-	# #create dictionary for testing data
-	# test_set = {
-	# 	'X1_test': seqX1[test_split:],
-	# 	'X2_test': seqX2[test_split:], 
-	# 	'X3_test': seqX3[test_split:],
-	# 	# 'y_in_test': seqY_in[(test_split + 1):], 
-	# 	'y_test': seqY[test_split:] 
-	# }
+	#create dictionary for testing data
+	test_set = {
+		'X1_test': seqX1[test_split:],
+		'X2_test': seqX2[test_split:], 
+		'X3_test': seqX3[test_split:],
+		# 'y_in_test': seqY_in[(test_split + 1):], 
+		'y_test': seqY[test_split:] 
+	}
 
 	#create dictionary for time references
 	time_refs = {
@@ -287,8 +254,9 @@ def format_data_into_timesteps(X1, X2, X3, Y, input_seq_size, output_seq_size, i
 		'output_times_test': out_times[test_split:]
 	}
 
+
 	return dataset, time_refs
-	# train_set, test_set, time_refs
+	# return train_set, test_set, time_refs
 
 
 
@@ -324,50 +292,26 @@ def data_processing(filepaths, labels, input_seq_size, output_seq_size):
 		vars_extract_filtered[str(key)] = lv_filter(vars_extract[str(key)]['data']) # filter data 
 		# vars_extract_filtered[str(key)][~daylight_hr_mask] = 0 #mask data 
 		scaler = MinMaxScaler() #normalise data
-		# vars_extract_filtered_masked_norm[str(key)] = scaler.fit_transform(vars_extract_filtered[str(key)].reshape(vars_extract_filtered[str(key)].shape[0],-1)).reshape(dimensions[0], dimensions[1], dimensions[2])
+		vars_extract_filtered_masked_norm[str(key)] = scaler.fit_transform(vars_extract_filtered[str(key)].reshape(vars_extract_filtered[str(key)].shape[0],-1)).reshape(dimensions[0], dimensions[1], dimensions[2])
 
-	# convert u and v components to wind speed and direction
-	ws = np.sqrt((vars_extract_filtered['u_wind_component']**2) + (vars_extract_filtered['v_wind_component']**2)) 
-	wd = np.arctan2(vars_extract_filtered['v_wind_component'], vars_extract_filtered['u_wind_component'])
-	wd = wd * (180 / np.pi)
-	wd = wd + 180
-	wd = 90 - wd
-
-	# convert ws and wd to float 32
-	ws = ws.astype('float32')
-	wd = wd.astype('float32')
-
-	# combine into an array
-	feature_array = [ws, wd, vars_extract_filtered['surface_pressure']]
-	# feature_array = [ws, wd, vars_extract_filtered['temperature']]
-
-	# normalise features
-	for i, array in enumerate(feature_array):
-		scaler = StandardScaler(with_mean=False) #normalise data
-		feature_array[i] = scaler.fit_transform(array.reshape(array.shape[0],-1)).reshape(dimensions[0], dimensions[1], dimensions[2])
 
 	#stack features into one matrix
-	# feature_array = [vars_extract_filtered_masked_norm[str(i)] for i in vars_extract_filtered_masked_norm]
+	feature_array = [vars_extract_filtered_masked_norm[str(i)] for i in vars_extract_filtered_masked_norm]
 	feature_array = np.stack(feature_array, axis = -1)
 	# feature_array = np.concatenate((feature_array, input_timefeatures), axis = -1)
 
 	# interpolate feature array from 24hrs to 48hrs
 	feature_array = interpolate_4d(feature_array)
 
-	# a = np.average(feature_array, axis=(1,2))
-	# a = pd.DataFrame(a)
-
-	# a.to_clipboard()
-
-	# exit()
-
 	# remove nan values
-	outputs_mask = labels['MW'].isna().groupby(labels.index.normalize()).transform('any')
+	outputs_mask = labels['quantity (MW)'].isna().groupby(labels.index.normalize()).transform('any')
 
 	# apply mask, removing days with more than one nan value
 	feature_array = feature_array[~outputs_mask]
 	labels = labels[~outputs_mask]
 
+	# print(np.isnan(feature_array).any())
+	# exit()
 
 	#Do time feature engineering for input times
 	times_in = pd.DataFrame({"datetime": times_in})
@@ -454,11 +398,9 @@ def data_processing(filepaths, labels, input_seq_size, output_seq_size):
 	times_out_year = np.expand_dims((df_times_outputs['year'].values - np.min(df_times_outputs['year'])) / (np.max(df_times_outputs['year']) - np.min(df_times_outputs['year'])), axis=-1)
 
 	print(times_out_hour_cos[:50])
-	labels['MW'] = labels['MW'].astype('float32')
-
 	#normalise labels
-	scaler = StandardScaler(with_mean=False)
-	labels[['MW']] = scaler.fit_transform(labels[['MW']])
+	scaler = MinMaxScaler()
+	labels[['quantity (MW)']] = scaler.fit_transform(labels[['quantity (MW)']])
 
 	time_refs = [in_times, label_times]
 
@@ -471,30 +413,22 @@ def data_processing(filepaths, labels, input_seq_size, output_seq_size):
 	# input_times = np.concatenate((times_in_hour_sin, times_in_hour_cos, times_in_month_sin, times_in_month_cos), axis=-1) swtich to output times for HH periods
 	output_times = np.concatenate((times_out_hour_sin, times_out_hour_cos, times_out_month_sin, times_out_month_cos, times_out_year), axis=-1)
 
+
 	labels = labels.values
 
-	# testing input 24hr and 48hr input data - convert to 48hrs for X2
-	input_times = output_times
-
-
-	# add labels to inputs before 'windowing' data
+	# add labels to inputs
+	print('combining feature array with lagged outputs')
 	broadcaster = np.ones((feature_array.shape[0], feature_array.shape[1], feature_array.shape[2],  1), dtype=np.float32)
 	broadcaster = broadcaster * np.expand_dims(np.expand_dims(labels, axis =2), axis=2)
 	feature_array = np.concatenate((broadcaster, feature_array), axis = -1)
 
+
+	# testing input 24hr and 48hr input data - convert to 48hrs for X2
+	input_times = output_times
+
 	# remove first input sequence length from output sequence
-	labels = labels[input_seq_size:]
-	output_times = output_times[input_seq_size:]
-
-
-	# av = np.average(feature_array, axis=(1,2))
-	# print(av.shape)
-	# plt.plot(av[:90,0].flatten())
-
-	# plt.plot(labels[:90])
-	# plt.show()
-	# exit()
-
+	# labels = labels[input_seq_size:]
+	# output_times = output_times[input_seq_size:]
 
 	# remove last output sequence from inputs
 	# input_times = input_times[:-output_seq_size]
@@ -508,13 +442,14 @@ def data_processing(filepaths, labels, input_seq_size, output_seq_size):
 	# num_seq = len(labels) - (output_seq_size - 1)
 	# test_set_percentage = 0.1
 
-
-	# test_split_seq = int(np.floor(num_seq * (1 - test_set_percentage)))
 	test_split_seq = 4800 # use the last 100 days, around 10%
 	
-
 	# input_test_seq =  test_split_seq + (input_seq_size - 1)
 	# output_test_seq = test_split_seq + (output_seq_size - 1)
+
+
+	#divide into timesteps & train and test sets
+	# dataset, time_refs = format_data_into_timesteps(X1 = feature_array, X2 = input_times , X3 = output_times, Y = labels, input_seq_size = 240, output_seq_size = 48, input_times_reference = time_refs[1], output_times_reference = time_refs[1]) # converting from 24hr to 48hr inputs hence can use output time references
 
 	# create dataset
 	dataset = {
@@ -539,44 +474,15 @@ def data_processing(filepaths, labels, input_seq_size, output_seq_size):
 		'output_times_test': label_times[-test_split_seq:]
 	}
 
-	# print(dataset['train_set']['X1_train'].shape)
-	# print(dataset['test_set']['X1_test'].shape)
-	# print(feature_array.shape)
-	# print('##########################################################')
-	# print(dataset['train_set']['y_train'].shape)
-	# print(dataset['test_set']['y_test'].shape)
-	# print(labels.shape)
-
-	# exit()
-
-
-
-	# print(dataset['train_set']['X1_train'].shape)
-	# print(dataset['test_set']['X1_test'].shape)
-	# exit()
-
-	# print(feature_array.shape)
-	# print(labels.shape)
-	# print(f'input: {in_times[-1]}')
-	# print(f'output: {label_times[-1]}')
-
-	# a = pd.DataFrame(time_refs[1])
-	# a = a.set_index('datetime').resample('1h')
-	# a.to_clipboard()
-	# exit()
-
-
-	#divide into timesteps & train and test sets
-	# dataset, time_refs = format_data_into_timesteps(X1 = feature_array, X2 = input_times , X3 = output_times, Y = labels, input_seq_size = 240, output_seq_size = 48, input_times_reference = time_refs[1], output_times_reference = time_refs[1]) # converting from 24hr to 48hr inputs hence can use output time references
-	# train_set, test_set, time_refs
-
-	# def to_float32(input_dict):
-	# 	for idx, key in enumerate(input_dict.keys()):
-	# 		input_dict[key] = input_dict[key].astype(np.float32)
-	# 	return input_dict
+	def to_float32(input_dict):
+		for idx, key in enumerate(input_dict.keys()):
+			input_dict[key] = input_dict[key].astype(np.float32)
+		return input_dict
 
 	# train_set = to_float32(train_set)
 	# test_set = to_float32(test_set)	
+
+
 
 	return dataset, time_refs
 	# return train_set, test_set, time_refs
@@ -585,40 +491,37 @@ def data_processing(filepaths, labels, input_seq_size, output_seq_size):
 
 #paths to nc files for x_value features:
 filepaths = {
-	 'u_wind_component': './Data/wind/Raw_Data/10m_u_component_of_wind',
-	 'v_wind_component': './Data/wind/Raw_Data/10m_v_component_of_wind',
-	 'surface_pressure': './Data/wind/Raw_Data/surface_pressure',
-	 # 'total_precipitation': './Data/wind/Raw_Data/Total_Precipitation'
+	 'solarRad': './Data/solar/Raw_Data/Net_Solar_Radiation',
+	 # 'directsolar': './Data/solar/Raw_Data/Total_Sky_Direct_Solar_Radiation_at_Surface',
+	 'lowcloudcover': './Data/solar/Raw_Data/Low_Cloud_Cover',
+	 'temperature': './Data/solar/Raw_Data/Temperature_Data',
 }
 
 #load labels (solar generation per HH)
-windGenLabels = pd.read_csv('./Data/wind/Raw_Data/HH_windGen_V4.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
+solarGenLabels = pd.read_csv('./Data/solar/Raw_Data/HH_PVGeneration_v2.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
 
-# windGenLabels.to_clipboard()
-
-# exit()
-
-
-dataset, time_refs = data_processing(filepaths = filepaths, labels = windGenLabels, input_seq_size = 240, output_seq_size = 48)
-# train_set, test_set, time_refs 
+dataset, time_refs = data_processing(filepaths = filepaths, labels = solarGenLabels, input_seq_size = 240, output_seq_size = 48)
 
 print(*[f'{key}: {dataset["train_set"][key].shape}' for key in dataset['train_set'].keys()], sep='\n')
 print(*[f'{key}: {dataset["test_set"][key].shape}' for key in dataset['test_set'].keys()], sep='\n')
 
-# #save training set as dictionary
-# with open("./Data/wind/Processed_Data/train_set_V1_withtimefeatures_96hrinput_24hrs.pkl", "wb") as trainset:
+
+
+# # save training set as dictionary (pickel dump)
+# with open("./Data/solar/Processed_Data/train_set_V9_withtimefeatures_120hrinput_float32.pkl", "wb") as trainset:
 # 	dump(train_set, trainset)
 
 # #save training set as dictionary
-# with open("./Data/wind/Processed_Data/test_set_V1_withtimefeatures_96hrinput_24hrs.pkl", "wb") as testset:
+# with open("./Data/solar/Processed_Data/test_set_V9_withtimefeatures_120hrinput_float32.pkl", "wb") as testset:
 # 	dump(test_set, testset)		
-	
+
 # #save time timeseries (inputs & outputs) for reference
-with open("./Data/wind/Processed_Data/time_refs_V5_withtimefeatures_120hrinput.pkl", "wb") as times:
+with open("./Data/solar/Processed_Data/time_refs_V21_withtimefeatures_120hr.pkl", "wb") as times:
 	dump(time_refs, times)
 
+
 # save training set as dictionary (h5py dump)
-f = h5py.File('./Data/wind/Processed_Data/train_set_V5_withtimefeatures_120hrinput_float32.hdf5', 'w')
+f = h5py.File('./Data/solar/Processed_Data/train_set_V21_withtimefeatures_120hrinput.hdf5', 'w')
 
 for group_name in dataset:
 	group = f.create_group(group_name)
@@ -626,19 +529,22 @@ for group_name in dataset:
 		dset = group.create_dataset(dset_name, data = dataset[group_name][dset_name])
 f.close()
 
+
+
+	
 exit()
 
 
 ###########################################_____LOAD_PROCESSED_DATA_____#############################################
 
 #load training data dictionary
-train_set_load = open("./Data/solar/Processed_Data/train_setv6_float32.pkl", "rb") 
+train_set_load = open("./Data/solar/Processed_Data/train_setv5_float32.pkl", "rb") 
 train_set = load(train_set_load)
 train_set_load.close()
 
 
 #load times references
-time_set_load = open("./Data/solar/Processed_Data/time_refsv6.pkl", "rb") 
+time_set_load = open("./Data/solar/Processed_Data/time_refsv5.pkl", "rb") 
 time_refs = load(time_set_load)
 time_set_load.close()
 
