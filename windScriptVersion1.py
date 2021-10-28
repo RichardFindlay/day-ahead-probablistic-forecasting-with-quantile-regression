@@ -483,8 +483,8 @@ def data_processing(filepaths, labels, input_seq_size, output_seq_size):
 	feature_array = np.concatenate((broadcaster, feature_array), axis = -1)
 
 	# remove first input sequence length from output sequence
-	labels = labels[input_seq_size:]
-	output_times = output_times[input_seq_size:]
+	# labels = labels[input_seq_size:]
+	# output_times = output_times[input_seq_size:]
 
 
 	# av = np.average(feature_array, axis=(1,2))
@@ -614,11 +614,11 @@ print(*[f'{key}: {dataset["test_set"][key].shape}' for key in dataset['test_set'
 # 	dump(test_set, testset)		
 	
 # #save time timeseries (inputs & outputs) for reference
-with open("./Data/wind/Processed_Data/time_refs_V5_withtimefeatures_120hrinput.pkl", "wb") as times:
+with open("./Data/wind/Processed_Data/time_refs_V6_withtimefeatures_120hrinput.pkl", "wb") as times:
 	dump(time_refs, times)
 
 # save training set as dictionary (h5py dump)
-f = h5py.File('./Data/wind/Processed_Data/train_set_V5_withtimefeatures_120hrinput_float32.hdf5', 'w')
+f = h5py.File('./Data/wind/Processed_Data/train_set_V6_withtimefeatures_120hrinput_float32.hdf5', 'w')
 
 for group_name in dataset:
 	group = f.create_group(group_name)
