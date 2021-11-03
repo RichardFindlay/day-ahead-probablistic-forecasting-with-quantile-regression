@@ -49,21 +49,21 @@ y_len = f['train_set']['y_train'].shape[0]
 print('size parameters loaded')
 f.close()  
 
-input_seq_size = 240
-output_seq_size = 48
+input_seq_size = 336
+output_seq_size = 12
 n_s = 128
 
-time_set_load = open(f"./Data/{type}/Processed_Data/time_refs_V6_withtimefeatures_120hrinput.pkl", "rb") 
-time_set = load(time_set_load)
-time_set_load.close()
+# time_set_load = open(f"./Data/{type}/Processed_Data/time_refs_V6_withtimefeatures_120hrinput.pkl", "rb") 
+# time_set = load(time_set_load)
+# time_set_load.close()
 
-idx =0
-print('time check')
-print(len(time_set['input_times_test']))
-print(len(time_set['output_times_test']))
-print(time_set['input_times_test'])
-print('*************************************************')
-print(time_set['output_times_test'][265:])
+# idx =0
+# print('time check')
+# print(len(time_set['input_times_test']))
+# print(len(time_set['output_times_test']))
+# print(time_set['input_times_test'])
+# print('*************************************************')
+# print(time_set['output_times_test'][265:])
 
 
 
@@ -71,12 +71,19 @@ print(time_set['output_times_test'][265:])
 # split test data into sequences
 f = h5py.File(f"./Data/{type}/Processed_Data/{dataset_name}", "r")
 
+
 X_train1 = f['test_set']['X1_test']
 X_train2 = f['test_set']['X2_test']
 X_train3 = f['test_set']['X3_test']
 y_train = f['test_set']['y_test']
 
 
+# X_train1 = f['test_set']['X1_test'][:500]
+# X_train2 = f['test_set']['X2_test'][:500]
+# X_train3 = f['test_set']['X3_test'][:500]
+# y_train = f['test_set']['y_test'][:500]
+
+print(X_train1.shape)
 
 # decoder_input = f['train_set']['y_train'][output_indexes]
 
@@ -120,7 +127,42 @@ model = load_model(f'./Models/{type}_models/q_0.5/{type}Generation_forecast_Main
 
 x1 = np.average(x1, axis=(2,3))
 
-out = model.predict([x1, x2])
+print(x1.shape)
+exit()
+
+
+output_len = 336
+
+next_input = x1[sample:sample+1,:,0:1] 
+
+for sample in range(1, x1.shape[0]):
+
+	x1[sample:sample+1,:,0:1] = next_input 
+
+	prediction = model.predict([x1[sample:sample+1,:,:], x2[sample:sample+1,:,:]])
+
+	predictions = np.concatenate([predictions, prediction], axis=1)
+
+	next_input = np.array(predictions[-input_seq_size:])
+
+
+
+
+print(out.shape)
+# exit()
+# index = 0
+# predictions = []
+# for t in range(output_len):
+# 	print(t)
+# 	if t == 0:
+# 		predictions = model.predict([x1[index:index+1,:,:], x2[index:index+1,:,:]])
+# 	else:
+# 		print(x1[index+t:index+1+t,:,:].shape)
+# 		pred = model.predict([x1[index+t:index+1+t,:,:], x2[index+t:index+1+t,:,:]])
+
+# 		a = np.concatenate([predictions, pred[:,-2:-1]], axis=-1)
+
+
 
 # print(x1.shape)
 
@@ -129,9 +171,9 @@ out = model.predict([x1, x2])
 
 predictions = out
 
-idx = 10
-plt.plot(predictions[idx:idx+7,:].flatten(), label="prediction")
-plt.plot(y[idx:idx+7,:,0].flatten(), label="actual")
+idx = 39
+plt.plot(predictions[idx:idx+14,:].flatten(), label="prediction")
+plt.plot(y[idx:idx+14,:,0].flatten(), label="actual")
 plt.legend()
 plt.show()
 
@@ -328,7 +370,7 @@ predictions = out[0]
 
 print(predictions.shape)
  
-idx = 50
+idx = 10
 plt.plot(predictions[idx,:,0].flatten(), label="first")
 plt.plot(np.insert(predictions[idx+1,:,0],0,0).flatten(), label="second")
 plt.plot(predictions[idx+48,:,0].flatten(), label="third")
