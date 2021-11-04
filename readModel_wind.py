@@ -127,23 +127,35 @@ model = load_model(f'./Models/{type}_models/q_0.5/{type}Generation_forecast_Main
 
 x1 = np.average(x1, axis=(2,3))
 
-print(x1.shape)
-exit()
+# print(x1.shape)
+# exit()
 
 
 output_len = 336
 
-next_input = x1[sample:sample+1,:,0:1] 
+next_input = x1[0:1,:,0:1] 
 
-for sample in range(1, x1.shape[0]):
+for sample in range(x1.shape[0]):
 
 	x1[sample:sample+1,:,0:1] = next_input 
 
 	prediction = model.predict([x1[sample:sample+1,:,:], x2[sample:sample+1,:,:]])
 
-	predictions = np.concatenate([predictions, prediction], axis=1)
 
-	next_input = np.array(predictions[-input_seq_size:])
+	if sample == 0:
+		predictions = np.expand_dims(prediction, axis=-1)
+	else:
+		predictions = np.concatenate([predictions, np.expand_dims(prediction, axis=-1)], axis=0)
+
+	print(next_input.shape)
+	print(prediction.shape)
+
+
+	next_input = np.concatenate([next_input, np.expand_dims(prediction, axis=-1)], axis=1)[0:1, -336:, 0:1]
+
+
+	print(next_input.shape)
+	exit()
 
 
 
