@@ -259,8 +259,6 @@ def format_data_into_timesteps(X1, X2, X3, Y, input_seq_size, output_seq_size, i
 		# 	}
 	}
 
-
-
 	# #create dictionary for training data
 	# train_set = {
 	# 	'X1_train': seqX1[:test_split],
@@ -327,18 +325,23 @@ def data_processing(filepaths, labels, input_seq_size, output_seq_size):
 		# vars_extract_filtered_masked_norm[str(key)] = scaler.fit_transform(vars_extract_filtered[str(key)].reshape(vars_extract_filtered[str(key)].shape[0],-1)).reshape(dimensions[0], dimensions[1], dimensions[2])
 
 	# convert u and v components to wind speed and direction
-	ws = np.sqrt((vars_extract_filtered['u_wind_component']**2) + (vars_extract_filtered['v_wind_component']**2)) 
-	wd = np.arctan2(vars_extract_filtered['v_wind_component'], vars_extract_filtered['u_wind_component'])
-	wd = wd * (180 / np.pi)
-	wd = wd + 180
-	wd = 90 - wd
+	ws_10 = np.sqrt((vars_extract_filtered['u_wind_component_10']**2) + (vars_extract_filtered['v_wind_component_10']**2)) 
+	ws_100 = np.sqrt((vars_extract_filtered['u_wind_component_100']**2) + (vars_extract_filtered['v_wind_component_100']**2)) 
+	# wd = np.arctan2(vars_extract_filtered['u_wind_component'], vars_extract_filtered['v_wind_component'])
+	# wd = wd * (180 / np.pi)
+	# wd = wd + 180
+	# wd = 90 - wd
+	wd_10 = np.mod(180+np.rad2deg(np.arctan2(vars_extract_filtered['u_wind_component_10'], vars_extract_filtered['v_wind_component_10'])),360)
+	wd_100 = np.mod(180+np.rad2deg(np.arctan2(vars_extract_filtered['u_wind_component_100'], vars_extract_filtered['v_wind_component_100'])),360)
 
 	# convert ws and wd to float 32
-	ws = ws.astype('float32')
-	wd = wd.astype('float32')
+	ws_10 = ws_10.astype('float32')
+	wd_10 = wd_10.astype('float32')
+	ws_100 = ws_100.astype('float32')
+	wd_100 = wd_100.astype('float32')
 
 	# combine into an array
-	feature_array = [ws, wd, vars_extract_filtered['surface_pressure']]
+	feature_array = [ws_10, wd_10, ws_100, wd_100, vars_extract_filtered['surface_pressure']]
 	# feature_array = [ws, wd, vars_extract_filtered['temperature']]
 
 	# normalise features
@@ -482,6 +485,19 @@ def data_processing(filepaths, labels, input_seq_size, output_seq_size):
 	broadcaster = broadcaster * np.expand_dims(np.expand_dims(labels, axis =2), axis=2)
 	feature_array = np.concatenate((broadcaster, feature_array), axis = -1)
 
+
+	# print(labels.shape)
+	# print(feature_array.shape)
+
+	# print(labels[:10])
+	# a = np.average(feature_array, axis=(1,2))
+	# print(a[:10,0])
+	# exit()
+
+
+
+
+
 	# remove first input sequence length from output sequence
 	# labels = labels[input_seq_size:]
 	# output_times = output_times[input_seq_size:]
@@ -585,10 +601,12 @@ def data_processing(filepaths, labels, input_seq_size, output_seq_size):
 
 #paths to nc files for x_value features:
 filepaths = {
-	 'u_wind_component': './Data/wind/Raw_Data/10m_u_component_of_wind',
-	 'v_wind_component': './Data/wind/Raw_Data/10m_v_component_of_wind',
+	 'u_wind_component_10': './Data/wind/Raw_Data/10m_u_component_of_wind',
+	 'v_wind_component_10': './Data/wind/Raw_Data/10m_v_component_of_wind',
+ 	 'u_wind_component_100': './Data/wind/Raw_Data/100m_u_component_of_wind',
+	 'v_wind_component_100': './Data/wind/Raw_Data/100m_v_component_of_wind',
 	 'surface_pressure': './Data/wind/Raw_Data/surface_pressure',
-	 # 'total_precipitation': './Data/wind/Raw_Data/Total_Precipitation'
+	 # 'Dewpoint_Temperature': './Data/wind/Raw_Data/2m_Dewpoint_Temperature'
 }
 
 #load labels (solar generation per HH)
