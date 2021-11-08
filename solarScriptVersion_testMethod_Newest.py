@@ -27,7 +27,7 @@ import seaborn as sns
 import random
 
 ###########################################_____LOAD_PROCESSED_DATA_____############################################
-dataset_name = 'train_set_V5_withtimefeatures_120hrinput_float32.hdf5'
+dataset_name = 'train_set_V6_withtimefeatures_120hrinput_float32.hdf5'
 model_type = 'wind'
 
 
@@ -50,7 +50,7 @@ x_len = f['train_set']['X1_train'].shape[0]
 y_len = f['train_set']['y_train'].shape[0]
 print('size parameters loaded')
 
-input_seq_size = 240
+input_seq_size = 672
 output_seq_size = 48
 
 print(x_len)
@@ -60,7 +60,7 @@ f.close()
 
 ###########################################_____DATA_GENERATOR_____#################################################
 
-params = {'batch_size': 32,
+params = {'batch_size': 8,
 		'shuffle': False } 
 
 class DataGenerator(tensorflow.keras.utils.Sequence):
@@ -76,23 +76,26 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 
 	def __len__(self):
 		# 'number of batches per Epoch'      
-		# print(int(np.floor((self.xlen - (input_seq_size-1)) / self.batch_size)))
-		return int(np.floor((self.xlen - (input_seq_size-1)) / self.batch_size))
+		# return int(np.floor((self.xlen - (input_seq_size-1)) / self.batch_size))
+		return int(np.floor((self.ylen - input_seq_size - (output_seq_size-1)) / self.batch_size))
 
 	def __getitem__(self, index):
 
 		# print(index)        
 
-		input_indexes = self.input_indexes[(index*self.batch_size) : (index*self.batch_size)+ (self.batch_size + (input_seq_size-1))]
-		output_indexes = self.output_indexes[(index*self.batch_size) : (index*self.batch_size) + (self.batch_size + (output_seq_size-1))]
+		# input_indexes = self.input_indexes[(index*self.batch_size) : (index*self.batch_size)+ (self.batch_size + (input_seq_size-1))]
+		# output_indexes = self.output_indexes[(index*self.batch_size) : (index*self.batch_size) + (self.batch_size + (output_seq_size-1))]
+
+		input_indexes = self.input_indexes[(index*self.batch_size) : (index*self.batch_size) + (self.batch_size + (input_seq_size-1))]
+		output_indexes = self.output_indexes[(index*self.batch_size) + input_seq_size : (index*self.batch_size) + input_seq_size + (self.batch_size + (output_seq_size-1))]
 
 		# self.index_ref_in += self.batch_size + (input_seq_size-1)
 		# self.index_ref_out += self.batch_size + (output_seq_size-1)
 
 		# Generate data
-		(X_train1, X_train2, X_train3, s0, c0), y_train = self.__data_generation(input_indexes, output_indexes)        
+		(X_train1, X_train2, X_train3, X_train4, s0, c0), y_train = self.__data_generation(input_indexes, output_indexes)        
 
-		return (X_train1, X_train2, X_train3, s0, c0), (y_train, [], []) # pass empty training outputs to extract extract attentions
+		return (X_train1, X_train2, X_train3, X_train4, s0, c0), (y_train, [], []) # pass empty training outputs to extract extract attentions
 
 	def on_epoch_end(self):
 		# set length of indexes for each epoch
@@ -102,11 +105,11 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 		if self.shuffle == True:
 			np.random.shuffle(self.input_indexes)
 
-	def to_sequence(self, x1, x2, x3, y):
+	def to_sequence(self, x1, x2, x3, x4, y):
 		# convert timeseries batch in sequences
 		input_start, output_start = 0, 0
 
-		seqX1, seqX2, seqX3, seqY = [], [], [], []
+		seqX1, seqX2, seqX3, seqX4, seqY = [], [], [], [], []
 
 		while (input_start + input_seq_size) <= len(x1):
 			# offset handled during pre-processing
@@ -119,14 +122,15 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 
 			# outputs
 			seqX3.append(x3[output_start:output_end])
+			seqX4.append(x4[output_start:output_end])
 			seqY.append(y[output_start:output_end])
 
 			input_start += 1  
 			output_start += 1
             
-		seqX1, seqX2, seqX3, seqY = np.array(seqX1), np.array(seqX2), np.array(seqX3), np.array(seqY)
+		seqX1, seqX2, seqX3, seqX4, seqY = np.array(seqX1), np.array(seqX2), np.array(seqX3), np.array(seqX4), np.array(seqY)
 
-		return seqX1, seqX2, seqX3, seqY
+		return seqX1, seqX2, seqX3, seqX4, seqY
 
 	def __data_generation(self, input_indexes, output_indexes):
 
@@ -134,6 +138,11 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 		X_train1 = f['train_set']['X1_train'][input_indexes]
 		X_train2 = f['train_set']['X2_train'][input_indexes]
 		X_train3 = f['train_set']['X3_train'][output_indexes]
+		X_train4 = f['train_set']['X1_train'][output_indexes][:,:,:,1:]
+		X_train4 = np.average(X_train4, axis=(1,2))
+
+		# print(X_train4.shape)
+		# sys.exit()        
 
 		y_train = f['train_set']['y_train'][output_indexes]
 		# decoder_input = f['train_set']['y_train'][output_indexes]
@@ -142,7 +151,7 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 		# print(X_train1.shape)
 		
         # convert to sequence data
-		X_train1, X_train2, X_train3, y_train = self.to_sequence(X_train1, X_train2, X_train3, y_train)
+		X_train1, X_train2, X_train3, X_train4, y_train = self.to_sequence(X_train1, X_train2, X_train3, X_train4, y_train)
 
 		s0 = np.zeros((self.batch_size, n_s))
 		c0 = np.zeros((self.batch_size, n_s))
@@ -151,7 +160,7 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 		# print(y_train.shape)
 
      
-		return (X_train1, X_train2, X_train3, s0, c0), y_train
+		return (X_train1, X_train2, X_train3, X_train4, s0, c0), y_train
 
 training_generator = DataGenerator(dataset_name = dataset_name, x_length = x_len, y_length = y_len,  **params)
 
@@ -264,10 +273,30 @@ def decoder(context, h_state, cell_state):
 
 	return dec_output, h_state, c_state
 
+# make custom activation - swish
+from keras.backend import sigmoid
+
+def swish(x, beta = 1):
+    return (x * sigmoid(beta * x))
+
+# Getting the Custom object and updating them
+from keras.utils.generic_utils import get_custom_objects
+from keras.layers import Activation
+  
+# Below in place of swish you can take any custom key for the name 
+get_custom_objects().update({'swish': Activation(swish)})
+  
+
 # layer for output predictions
-predict_1 = Conv1D(64, kernel_size=1, strides=1, padding="same", activation="relu")
-predict_2 = Conv1D(16, kernel_size=1, strides=1, padding="same", activation="relu")
-predict_3 = Conv1D(1, kernel_size=1, strides=1, padding="same", activation="linear")
+# predict_1 = Conv1D(64, kernel_size=1, strides=1, padding="same", activation="swish")
+# predict_2 = Conv1D(16, kernel_size=1, strides=1, padding="same", activation="swish")
+# predict_3 = Conv1D(1, kernel_size=1, strides=1, padding="same", activation="linear")
+
+predict_1 = Dense(64, activation="swish")
+# predict_2 = Dense(16, kernel_size=1, strides=1, padding="same", activation="swish")
+predict_3 = Dense(1, activation="swish")
+
+
 
 # dropout
 drop = Dropout(0.3)
@@ -282,6 +311,7 @@ drop = Dropout(0.3)
 x_input = Input(shape=(Tx, height, width, channels))
 times_in = Input(shape=(Tx, times_in_dim))
 times_out = Input(shape=(Ty, times_out_dim))
+out_nwp = Input(shape=(Ty, channels-1))
 s_state0 = Input(shape=(n_s,))
 c_state0 = Input(shape=(n_s,))
 dec_inp = Input(shape=(None, 1))
@@ -325,6 +355,7 @@ context = concatenate([context_spat, context_temp], axis=-1)
 # print(context.shape)
 
 decoder_input = concatenate([context_spat, times_out], axis=-1) 
+decoder_input = concatenate([decoder_input, out_nwp], axis=-1) 
 
 # get the previous value for teacher forcing
 # decoder_input = concatenate([context, y_prev], axis=-1)
@@ -343,7 +374,7 @@ dec_output, s_state, c_state = decoder(decoder_input, s_state, c_state)
 
 # get final predicted value
 output = predict_1(dec_output)	
-output = predict_2(output)
+# output = predict_2(output)
 predictions = predict_3(output)
 
 	# output = Conv1D(64, kernel_size=1, strides=1, padding="same", activation="relu", name=f"1conv_{t}")(dec_output)
@@ -393,7 +424,7 @@ predictions = predict_3(output)
 # attention_temporal = Lambda(lambda x: concatenate(x, axis=1))(all_temp_attn_weights)
 # attention_spatial = Lambda(lambda x: concatenate(x, axis=1))(all_spat_attn_weights)
 
-model = Model(inputs = [x_input, times_in, times_out, s_state0, c_state0], outputs = [predictions, attn_weights_temp, attn_weights_spat])
+model = Model(inputs = [x_input, times_in, times_out, out_nwp, s_state0, c_state0], outputs = [predictions, attn_weights_temp, attn_weights_spat])
 
 
 # define the pinball loss function to optimise
@@ -407,13 +438,16 @@ quantiles = ['0.' + str(i) for i in range(1,10)]
 quantiles = list(map(float, quantiles))
 quantiles.append(0.99)
 quantiles.insert(0, 0.01)
-quantiles = [0.5, 0.1, 0.9]
+quantiles = [0.5]
 print(quantiles)
 
 #include clipvalue in optmisier
 optimizer = tensorflow.keras.optimizers.Adam(learning_rate = 0.001)
 
 # lstm_idx = [x for x in range(1,49)]
+
+
+
 
 # function to set only decoder to trainable
 def freeze_decoder_train(model):
@@ -468,7 +502,25 @@ def freeze_decoder_train(model):
 # 	model.save(f'/content/drive/My Drive/quantile_{q}/solarGeneration_forecast_MainModel_Q_{q}.h5')	
 # 	K.clear_session()
 		
+def QuantileLoss(perc, delta=1e-4):
+    perc = np.array(perc).reshape(-1)
+    perc.sort()
+    perc = perc.reshape(1, -1)
+    def _qloss(y, pred):
+        I = tf.cast(y <= pred, tf.float32)
+        error = K.abs(y - pred)
+        correction = I * (1 - perc) + (1 - I) * perc
+        # huber loss
+        huber_loss = K.sum(correction * tf.where(error <= delta, 0.5 * error ** 2 / delta, error - 0.5 * delta), -1)
+        print(huber_loss.shape)
+        # order loss
+        q_order_loss = K.sum(K.maximum(0.0, pred[:,:, :-1] - pred[:,:, 1:] + 1e-6), -1)
+        print(q_order_loss.shape)
+        return huber_loss + q_order_loss
+    return _qloss
 
+
+perc_points = [0.01, 0.25, 0.5, 0.75, 0.99]
 
 
 # train each model for each quantile
@@ -477,7 +529,7 @@ for q in quantiles:
 	# model = solarGenation_Model()
 	model.compile(loss = [lambda y,f: defined_loss(q,y,f), None, None], optimizer= optimizer, metrics = ['mae'])
 	print(model.summary())
-	train = model.fit(training_generator, workers=4, epochs = 30)
+	train = model.fit(training_generator, workers=4, epochs = 5)
 
 	os.mkdir(f'/content/drive/My Drive/{model_type}Models/q_{q}')
 	# model_freeze.save_weights('/content/drive/My Drive/solarGeneration_forecast_weights_freezed' + '_Q_%s' %(q) + '.h5')
@@ -485,12 +537,26 @@ for q in quantiles:
 	# model.save_weights('/content/drive/My Drive/solarGeneration_forecast_weights_test2' + '_Q_%s' %(q) + '.h5')
 	
 	# save some additional models for inference
-	enoder_temporal_model = Model(inputs = [x_input, times_in], outputs=[lstm_enc_output, enc_s_state, enc_c_state])
-	enoder_spatial_model = Model(x_input, ccn_enc_output)
-	enoder_temporal_model.save(f'/content/drive/My Drive/{model_type}Models/q_{q}/{model_type}Generation_encoderModelTemporal' + '_Q_%s' %(q) + '.h5')
-	enoder_spatial_model.save(f'/content/drive/My Drive/{model_type}Models/q_{q}/{model_type}Generation_encoderModelSpatial' + '_Q_%s' %(q) + '.h5')
+	# enoder_temporal_model = Model(inputs = [x_input, times_in], outputs=[lstm_enc_output, enc_s_state, enc_c_state])
+	# enoder_spatial_model = Model(x_input, ccn_enc_output)
+	# enoder_temporal_model.save(f'/content/drive/My Drive/{model_type}Models/q_{q}/{model_type}Generation_encoderModelTemporal' + '_Q_%s' %(q) + '.h5')
+	# enoder_spatial_model.save(f'/content/drive/My Drive/{model_type}Models/q_{q}/{model_type}Generation_encoderModelSpatial' + '_Q_%s' %(q) + '.h5')
 
-	K.clear_session()
+	# K.clear_session()
+
+
+print('predicting')
+predictions = model.predict(training_generator)
+predictions = predictions[0]
+
+idx = 85
+plt.plot(predictions[idx:idx+7,:].flatten(), label="prediction")
+# plt.plot(y[idx:idx+7,:,0].flatten(), label="actual")
+plt.legend()
+plt.show()
+
+
+
 
 sys.exit()
 
