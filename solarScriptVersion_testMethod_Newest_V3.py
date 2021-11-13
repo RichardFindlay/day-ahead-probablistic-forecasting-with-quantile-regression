@@ -8,7 +8,7 @@ import h5py
 
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Conv1D, Conv2D, Softmax, Bidirectional, Dense, TimeDistributed, LSTM 
-from tensorflow.keras.layers import Input, Activation, AveragePooling2D, Lambda, concatenate, Flatten, BatchNormalization, RepeatVector, Permute, Lambda, Dropout
+from tensorflow.keras.layers import Input, Activation, AveragePooling2D, Lambda, concatenate, Flatten, BatchNormalization, RepeatVector, Permute, Lambda, Dropout, Flatten
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.callbacks import Callback
@@ -27,8 +27,8 @@ import seaborn as sns
 import random
 
 ###########################################_____LOAD_PROCESSED_DATA_____############################################
-dataset_name = 'train_set_V6_withtimefeatures_120hrinput_float32.hdf5'
-model_type = 'wind'
+dataset_name = 'train_set_V21_withtimefeatures_120hrinput.hdf5'
+model_type = 'solar'
 
 
 # load training data dictionary
@@ -60,7 +60,7 @@ f.close()
 
 ###########################################_____DATA_GENERATOR_____#################################################
 
-params = {'batch_size': 8,
+params = {'batch_size': 16,
 		'shuffle': False } 
 
 class DataGenerator(tensorflow.keras.utils.Sequence):
@@ -95,7 +95,7 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 		# Generate data
 		(X_train1, X_train2, X_train3, X_train4, s0, c0), y_train = self.__data_generation(input_indexes, output_indexes)        
 
-		return (X_train1, X_train2, X_train3, X_train4, s0, c0), (y_train, [], []) # pass empty training outputs to extract extract attentions
+		return (X_train1, X_train2, X_train3, X_train4, s0, c0), (y_train) # pass empty training outputs to extract extract attentions
 
 	def on_epoch_end(self):
 		# set length of indexes for each epoch
@@ -235,24 +235,26 @@ def cnn_encoder(ccn_input):
 	ccn_enc_output = TimeDistributed(Conv2D(16, kernel_size=3, strides=1, activation="relu"))(ccn_input)
 	ccn_enc_output = TimeDistributed(AveragePooling2D(pool_size=(2, 2), data_format="channels_last"))(ccn_enc_output)
 	# ccn_enc_output = BatchNormalization()(ccn_enc_output)    
-	ccn_enc_output = TimeDistributed(Conv2D(32, kernel_size=3, strides=1, activation="relu"))(ccn_enc_output)
-	ccn_enc_output = TimeDistributed(Conv2D(64, kernel_size=3, strides=1, activation="relu"))(ccn_enc_output)
+	ccn_enc_output = TimeDistributed(Conv2D(8, kernel_size=3, strides=1, activation="relu"))(ccn_enc_output)
+	ccn_enc_output = TimeDistributed(Conv2D(4, kernel_size=3, strides=1, activation="relu"))(ccn_enc_output)
 	# ccn_enc_output = BatchNormalization()(ccn_enc_output)  
-	ccn_enc_output = TimeDistributed(Conv2D(128, kernel_size=3, strides=1, activation="relu"))(ccn_enc_output)
+	# ccn_enc_output = TimeDistributed(Conv2D(128, kernel_size=3, strides=1, activation="relu"))(ccn_enc_output)
 
 	ccn_enc_output = Reshape((ccn_enc_output.shape[1], -1, ccn_enc_output.shape[-1]))(ccn_enc_output) 
 
 	ccn_enc_output = K.mean(ccn_enc_output, axis=1) 
+
+	ccn_enc_output = Flatten()(ccn_enc_output) 
     
 	return ccn_enc_output
 
 # encoder layers
-lstm_encoder = LSTM(n_s, return_sequences = True, return_state = True)
+lstm_encoder = LSTM(n_s, return_sequences = False, return_state = True)
 
 
-def encoder(input, times_in):
+def encoder(x_input, times_in):
 
-	enc_output = K.mean(input, axis=(2,3))
+	enc_output = K.mean(x_input, axis=(2,3))
 
 	# concat input time features with input
 	enc_output = concatenate([enc_output, times_in], axis=-1)
@@ -293,8 +295,8 @@ get_custom_objects().update({'swish': Activation(swish)})
 # predict_3 = Conv1D(1, kernel_size=1, strides=1, padding="same", activation="linear")
 
 predict_1 = Dense(64, activation="swish")
-# predict_2 = Dense(16, kernel_size=1, strides=1, padding="same", activation="swish")
-predict_3 = Dense(1, activation="swish")
+predict_2 = Dense(16, activation="swish")
+predict_3 = Dense(1)
 
 
 
@@ -329,6 +331,7 @@ ccn_enc_output = cnn_encoder(x_input)
 
 # call LSTM_encoder function
 lstm_enc_output, enc_s_state, enc_c_state = encoder(x_input, times_in)
+# lstm_enc_output, enc_s_state, enc_c_state = encoder(x_input)
 
 s_state = enc_s_state
 c_state = enc_c_state
@@ -344,18 +347,18 @@ c_state = enc_c_state
 # for t in range(Ty):
 
 # get context matrix (temporal)
-attn_weights_temp, context_temp = temporal_attn(lstm_enc_output, s_state, c_state)
+# attn_weights_temp, context_temp = temporal_attn(lstm_enc_output, s_state, c_state)
 
 # get context matrix (spatial)
-attn_weights_spat, context_spat = spatial_attn(ccn_enc_output, s_state, c_state)
+# attn_weights_spat, context_spat = spatial_attn(ccn_enc_output, s_state, c_state)
 
 # combine spatial and temporal context
-context = concatenate([context_spat, context_temp], axis=-1) 
-
+decoder_input = concatenate([lstm_enc_output, ccn_enc_output], axis=-1) 
+decoder_input = RepeatVector(Ty)(decoder_input)
 # print(context.shape)
 
-decoder_input = concatenate([context_spat, times_out], axis=-1) 
 decoder_input = concatenate([decoder_input, out_nwp], axis=-1) 
+decoder_input = concatenate([decoder_input, times_out], axis=-1) 
 
 # get the previous value for teacher forcing
 # decoder_input = concatenate([context, y_prev], axis=-1)
@@ -424,7 +427,7 @@ predictions = predict_3(output)
 # attention_temporal = Lambda(lambda x: concatenate(x, axis=1))(all_temp_attn_weights)
 # attention_spatial = Lambda(lambda x: concatenate(x, axis=1))(all_spat_attn_weights)
 
-model = Model(inputs = [x_input, times_in, times_out, out_nwp, s_state0, c_state0], outputs = [predictions, attn_weights_temp, attn_weights_spat])
+model = Model(inputs = [x_input, times_in, times_out, out_nwp, s_state0, c_state0], outputs = predictions)
 
 
 # define the pinball loss function to optimise
@@ -529,7 +532,7 @@ for q in quantiles:
 	# model = solarGenation_Model()
 	model.compile(loss = [lambda y,f: defined_loss(q,y,f), None, None], optimizer= optimizer, metrics = ['mae'])
 	print(model.summary())
-	train = model.fit(training_generator, workers=4, epochs = 5)
+	train = model.fit(training_generator, workers=4, epochs = 10)
 
 	os.mkdir(f'/content/drive/My Drive/{model_type}Models/q_{q}')
 	# model_freeze.save_weights('/content/drive/My Drive/solarGeneration_forecast_weights_freezed' + '_Q_%s' %(q) + '.h5')
@@ -547,7 +550,7 @@ for q in quantiles:
 
 print('predicting')
 predictions = model.predict(training_generator)
-predictions = predictions[0]
+# predictions = predictions[0]
 
 idx = 85
 plt.plot(predictions[idx:idx+7,:].flatten(), label="prediction")
