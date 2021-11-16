@@ -22,6 +22,8 @@ import time
 import tensorflow as tf
 
 import h5py
+from workalendar.europe import UnitedKingdom
+cal = UnitedKingdom()
 
 # os.environ['TF_CPP_MIN_LOG_LEVEL']='2' #hide tensorflow error 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -104,16 +106,16 @@ def lv_filter(data):
 
 
 # function to convert 24hr input to 48hrs
-# def interpolate_4d(array):
-# 	interp_array = np.empty((array.shape[0]*2 , array.shape[1], array.shape[2], array.shape[3]))
-# 	for ivar in range(array.shape[-1]):
-# 		for interp_idx in range(interp_array.shape[0]):
-# 			if (interp_idx % 2 == 0) or (int(np.ceil(interp_idx/2)) == array.shape[0]): 
-# 				interp_array[interp_idx, :, :, ivar] = array[int(np.floor(interp_idx/2)), :, :, ivar]
-# 			else:
-# 				interp_array[interp_idx, :, :, ivar] = (array[int(np.floor(interp_idx/2)), :, :, ivar] + array[int(np.ceil(interp_idx/2)), :, :, ivar]) / 2
+def interpolate_4d(array):
+	interp_array = np.empty((array.shape[0]*2 , array.shape[1], array.shape[2], array.shape[3]))
+	for ivar in range(array.shape[-1]):
+		for interp_idx in range(interp_array.shape[0]):
+			if (interp_idx % 2 == 0) or (int(np.ceil(interp_idx/2)) == array.shape[0]): 
+				interp_array[interp_idx, :, :, ivar] = array[int(np.floor(interp_idx/2)), :, :, ivar]
+			else:
+				interp_array[interp_idx, :, :, ivar] = (array[int(np.floor(interp_idx/2)), :, :, ivar] + array[int(np.ceil(interp_idx/2)), :, :, ivar]) / 2
 
-# 	return interp_array
+	return interp_array
 
 
 # function to interpolate time
@@ -306,24 +308,8 @@ def data_processing(filepaths, labels):
 		scaler = MinMaxScaler() #normalise data
 		vars_extract_filtered_masked_norm[str(key)] = scaler.fit_transform(vars_extract_filtered[str(key)].reshape(vars_extract_filtered[str(key)].shape[0],-1)).reshape(dimensions[0], dimensions[1], dimensions[2])
 
-	# convert u and v components to wind speed and direction
-	# ws = np.sqrt((vars_extract_filtered['u_wind_component']**2) + (vars_extract_filtered['v_wind_component']**2)) 
-	# wd = np.arctan2(vars_extract_filtered['v_wind_component'], vars_extract_filtered['u_wind_component'])
-	# wd = wd * (180 / np.pi)
-	# wd = wd + 180
-	# wd = 90 - wd
 
-	# combine into an array
-	# feature_array = [ws, wd]
-	# feature_array = [ws, wd, vars_extract_filtered['temperature']]
 
-	a = np.average(vars_extract_filtered_masked_norm['temperature'],axis=(1,2))
-
-	a = pd.DataFrame(a)
-
-	a.to_clipboard()
-
-	exit()
 
 
 	# normalise features
@@ -332,12 +318,21 @@ def data_processing(filepaths, labels):
 	# 	feature_array[i] = scaler.fit_transform(array.reshape(array.shape[0],-1)).reshape(dimensions[0], dimensions[1], dimensions[2])
 
 	#stack features into one matrix
-	# feature_array = [vars_extract_filtered_masked_norm[str(i)] for i in vars_extract_filtered_masked_norm]
+	feature_array = [vars_extract_filtered_masked_norm[str(i)] for i in vars_extract_filtered_masked_norm]
 	feature_array = np.stack(feature_array, axis = -1)
 	# feature_array = np.concatenate((feature_array, input_timefeatures), axis = -1)
 
 	# interpolate feature array from 24hrs to 48hrs
-	feature_array = interpolate_4d(feature_array)
+	feature_array = interpolate_4d(vars_extract_filtered['temperature'])
+
+	print(feature_array.shape)
+
+	feature_array = np.average(feature_array, axis=(1,2))
+
+	a = pd.DataFrame(feature_array)
+
+	a.to_clipboard()
+	exit()
 
 
 	#Do time feature engineering for input times
@@ -384,12 +379,12 @@ def data_processing(filepaths, labels):
 	times_in_hour_sin = np.expand_dims(np.sin(2*np.pi*hour_in/np.max(hour_in)), axis=-1)
 	times_in_month_sin = np.expand_dims(np.sin(2*np.pi*month_in/np.max(month_in)), axis=-1)
 
-
 	times_in_hour_cos = np.expand_dims(np.cos(2*np.pi*hour_in/np.max(hour_in)),axis=-1)
 	times_in_month_cos = np.expand_dims(np.cos(2*np.pi*month_in/np.max(month_in)), axis=-1)
 
-
 	times_in_year = (in_times - np.min(in_times)) / (np.max(in_times) - np.min(in_times))
+
+
 
 
 	#Process output times as secondary input for decoder 
@@ -398,14 +393,33 @@ def data_processing(filepaths, labels):
 
 	#declare 'output' time features
 	df_times_outputs = pd.DataFrame()
+	df_times_outputs['date'] = labels.index.date
 	df_times_outputs['hour'] = labels.index.hour 
 	df_times_outputs['month'] = labels.index.month - 1
 	df_times_outputs['year'] = labels.index.year
+	df_times_outputs['day_of_week'] = labels.index.dayofweek
+	df_times_outputs['day_of_year'] = labels.index.dayofyear - 1
+	df_times_outputs['weekend'] = df_times_outputs['day_of_week'].apply(lambda x: 1 if x>=5 else 0)
+
+
+	# account for bank / public holidays
+	start_date = labels.index.min()
+	end_date = labels.index.max()
+	start_year = df_times_outputs['year'].min()
+	end_year = df_times_outputs['year'].max()
+
+	
+	holidays = set(holiday[0] 
+		for year in range(start_year, end_year + 1) 
+		for holiday in cal.holidays(year)
+		if start_date <=  holiday[0] <= end_date)
+
+	df_times_outputs['holiday'] = df_times_outputs['date'].isin(holidays).astype(int)
 
 	#process output times for half hours
 	for idx, row in df_times_outputs.iterrows():
 		if idx % 2 != 0:
-			df_times_outputs.iloc[idx, 0] = df_times_outputs.iloc[idx, 0] + 0.5
+			df_times_outputs.iloc[idx, 1] = df_times_outputs.iloc[idx, 1] + 0.5
 
 
 	months_out = pd.get_dummies(df_times_outputs['month'], prefix='month_')
@@ -415,14 +429,25 @@ def data_processing(filepaths, labels):
 	times_out = times_out_df.values
 
 
-	# create sin / cos of input times
+	# create sin / cos of output hour
 	times_out_hour_sin = np.expand_dims(np.sin(2*np.pi*df_times_outputs['hour']/np.max(df_times_outputs['hour'])), axis=-1)
-	times_out_month_sin = np.expand_dims(np.sin(2*np.pi*df_times_outputs['month']/np.max(df_times_outputs['month'])), axis=-1)
-
 	times_out_hour_cos = np.expand_dims(np.cos(2*np.pi*df_times_outputs['hour']/np.max(df_times_outputs['hour'])), axis=-1)
+
+	# create sin / cos of output month
+	times_out_month_sin = np.expand_dims(np.sin(2*np.pi*df_times_outputs['month']/np.max(df_times_outputs['month'])), axis=-1)
 	times_out_month_cos = np.expand_dims(np.cos(2*np.pi*df_times_outputs['month']/np.max(df_times_outputs['month'])), axis=-1)
 
+	# create sin / cos of output year
 	times_out_year = np.expand_dims((df_times_outputs['year'].values - np.min(df_times_outputs['year'])) / (np.max(df_times_outputs['year']) - np.min(df_times_outputs['year'])), axis=-1)
+
+	# create sin / cos of output day of week
+	times_out_DoW_sin = np.expand_dims(np.sin(2*np.pi*df_times_outputs['day_of_week']/np.max(df_times_outputs['day_of_week'])), axis=-1)
+	times_out_DoW_cos = np.expand_dims(np.cos(2*np.pi*df_times_outputs['day_of_week']/np.max(df_times_outputs['day_of_week'])), axis=-1)
+
+	# create sin / cos of output day of year
+	times_out_DoY_sin = np.expand_dims(np.sin(2*np.pi*df_times_outputs['day_of_year']/np.max(df_times_outputs['day_of_year'])), axis=-1)
+	times_out_DoY_cos = np.expand_dims(np.cos(2*np.pi*df_times_outputs['day_of_year']/np.max(df_times_outputs['day_of_year'])), axis=-1)		
+
 
 	print(times_out_hour_cos[:50])
 	#normalise labels
@@ -438,7 +463,8 @@ def data_processing(filepaths, labels):
 
 	# cyclic method
 	# input_times = np.concatenate((times_in_hour_sin, times_in_hour_cos, times_in_month_sin, times_in_month_cos), axis=-1) swtich to output times for HH periods
-	output_times = np.concatenate((times_out_hour_sin, times_out_hour_cos, times_out_month_sin, times_out_month_cos, times_out_year), axis=-1)
+	output_times = np.concatenate((times_out_hour_sin, times_out_hour_cos, times_out_month_sin, times_out_month_cos, times_out_DoW_sin, times_out_DoW_cos,
+									 times_out_DoY_sin, times_out_DoY_cos, times_out_year, df_times_outputs['weekend'].values, df_times_outputs['holiday'].values), axis=-1)
 
 
 	labels = labels.values
@@ -456,15 +482,61 @@ def data_processing(filepaths, labels):
 	# a.to_clipboard()
 	# exit()
 
+	# add labels to inputs
+	print('combining feature array with lagged outputs')
+	broadcaster = np.ones((feature_array.shape[0], feature_array.shape[1], feature_array.shape[2],  1), dtype=np.float32)
+	broadcaster = broadcaster * np.expand_dims(np.expand_dims(labels, axis =2), axis=2)
+	feature_array = np.concatenate((broadcaster, feature_array), axis = -1)
+
 
 	#divide into timesteps & train and test sets
-	dataset, time_refs = format_data_into_timesteps(X1 = feature_array, X2 = input_times , X3 = output_times, Y = labels, input_seq_size = 240, output_seq_size = 48, input_times_reference = time_refs[1], output_times_reference = time_refs[1]) # converting from 24hr to 48hr inputs hence can use output time references
+	# dataset, time_refs = format_data_into_timesteps(X1 = feature_array, X2 = input_times , X3 = output_times, Y = labels, input_seq_size = 240, output_seq_size = 48, input_times_reference = time_refs[1], output_times_reference = time_refs[1]) # converting from 24hr to 48hr inputs hence can use output time references
 	# train_set, test_set, time_refs
 
-	def to_float32(input_dict):
-		for idx, key in enumerate(input_dict.keys()):
-			input_dict[key] = input_dict[key].astype(np.float32)
-		return input_dict
+	# def to_float32(input_dict):
+	# 	for idx, key in enumerate(input_dict.keys()):
+	# 		input_dict[key] = input_dict[key].astype(np.float32)
+	# 	return input_dict
+
+	# train_set = to_float32(train_set)
+	# test_set = to_float32(test_set)	
+
+	test_split_seq = 4800 # use the last 100 days, around 10%
+	
+	# input_test_seq =  test_split_seq + (input_seq_size - 1)
+	# output_test_seq = test_split_seq + (output_seq_size - 1)
+
+
+	#divide into timesteps & train and test sets
+	# dataset, time_refs = format_data_into_timesteps(X1 = feature_array, X2 = input_times , X3 = output_times, Y = labels, input_seq_size = 240, output_seq_size = 48, input_times_reference = time_refs[1], output_times_reference = time_refs[1]) # converting from 24hr to 48hr inputs hence can use output time references
+
+	# create dataset
+	dataset = {
+		'train_set' : {
+			'X1_train': feature_array[:-test_split_seq],
+			'X2_train': input_times[:-test_split_seq], # input time features
+			'X3_train': output_times[:-test_split_seq], # output time features
+			'y_train': labels[:-test_split_seq] 
+			},
+		'test_set' : {
+			'X1_test': feature_array[-test_split_seq:],
+			'X2_test': input_times[-test_split_seq:], 
+			'X3_test': output_times[-test_split_seq:],
+			'y_test': labels[-test_split_seq:] 
+			}
+		}
+
+	time_refs = {
+		'input_times_train': in_times[:-test_split_seq],
+		'input_times_test': in_times[-test_split_seq:], 
+		'output_times_train': label_times[:-test_split_seq],
+		'output_times_test': label_times[-test_split_seq:]
+	}
+
+	# def to_float32(input_dict):
+	# 	for idx, key in enumerate(input_dict.keys()):
+	# 		input_dict[key] = input_dict[key].astype(np.float32)
+	# 	return input_dict
 
 	# train_set = to_float32(train_set)
 	# test_set = to_float32(test_set)	
@@ -482,7 +554,7 @@ filepaths = {
 }
 
 #load labels (solar generation per HH)
-windGenLabels = pd.read_csv('./Data/wind/Raw_Data/HH_windGenV2.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
+windGenLabels = pd.read_csv('./Data/demand/Raw_Data/UK_Demand_2019-01-01_2021-06-30.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
 
 dataset, time_refs = data_processing(filepaths = filepaths, labels = windGenLabels)
 # train_set, test_set, time_refs 
@@ -499,11 +571,11 @@ dataset, time_refs = data_processing(filepaths = filepaths, labels = windGenLabe
 # 	dump(test_set, testset)		
 	
 # #save time timeseries (inputs & outputs) for reference
-with open("./Data/wind/Processed_Data/time_refs_V2_withtimefeatures_96hrinput.pkl", "wb") as times:
+with open("./Data/demand/Processed_Data/time_refs_V1_withtimefeatures_Demand.pkl", "wb") as times:
 	dump(time_refs, times)
 
 # save training set as dictionary (h5py dump)
-f = h5py.File('./Data/wind/Processed_Data/train_set_V2_withtimefeatures_96hrinput_float32.hdf5', 'w')
+f = h5py.File('./Data/demand/Processed_Data/dataset_V1_withtimefeatures_Demand.hdf5', 'w')
 
 for group_name in dataset:
 	group = f.create_group(group_name)
