@@ -309,30 +309,14 @@ def data_processing(filepaths, labels):
 		vars_extract_filtered_masked_norm[str(key)] = scaler.fit_transform(vars_extract_filtered[str(key)].reshape(vars_extract_filtered[str(key)].shape[0],-1)).reshape(dimensions[0], dimensions[1], dimensions[2])
 
 
-
-
-
-	# normalise features
-	# for i, array in enumerate(feature_array):
-	# 	scaler = StandardScaler(with_mean=False) #normalise data
-	# 	feature_array[i] = scaler.fit_transform(array.reshape(array.shape[0],-1)).reshape(dimensions[0], dimensions[1], dimensions[2])
-
 	#stack features into one matrix
 	feature_array = [vars_extract_filtered_masked_norm[str(i)] for i in vars_extract_filtered_masked_norm]
 	feature_array = np.stack(feature_array, axis = -1)
 	# feature_array = np.concatenate((feature_array, input_timefeatures), axis = -1)
 
 	# interpolate feature array from 24hrs to 48hrs
-	feature_array = interpolate_4d(vars_extract_filtered['temperature'])
+	feature_array = interpolate_4d(feature_array)
 
-	print(feature_array.shape)
-
-	feature_array = np.average(feature_array, axis=(1,2))
-
-	a = pd.DataFrame(feature_array)
-
-	a.to_clipboard()
-	exit()
 
 
 	#Do time feature engineering for input times
@@ -454,17 +438,24 @@ def data_processing(filepaths, labels):
 	scaler = StandardScaler(with_mean=False)
 	labels[['quantity (MW)']] = scaler.fit_transform(labels[['quantity (MW)']])
 
+	print(labels.max())
+	exit()
+
 	time_refs = [in_times, label_times]
 
 	# one-hot method 
 	# input_times = times_in_df.values
 	# output_times = times_out_df.values
 
+	weekends = np.expand_dims(df_times_outputs['weekend'].values, axis =-1)
+	holidays = np.expand_dims(df_times_outputs['holiday'].values, axis =-1)
+
+
 
 	# cyclic method
 	# input_times = np.concatenate((times_in_hour_sin, times_in_hour_cos, times_in_month_sin, times_in_month_cos), axis=-1) swtich to output times for HH periods
 	output_times = np.concatenate((times_out_hour_sin, times_out_hour_cos, times_out_month_sin, times_out_month_cos, times_out_DoW_sin, times_out_DoW_cos,
-									 times_out_DoY_sin, times_out_DoY_cos, times_out_year, df_times_outputs['weekend'].values, df_times_outputs['holiday'].values), axis=-1)
+									 times_out_DoY_sin, times_out_DoY_cos, times_out_year, weekends, holidays), axis=-1)
 
 
 	labels = labels.values
@@ -554,7 +545,7 @@ filepaths = {
 }
 
 #load labels (solar generation per HH)
-windGenLabels = pd.read_csv('./Data/demand/Raw_Data/UK_Demand_2019-01-01_2021-06-30.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
+windGenLabels = pd.read_csv('./Data/demand/Raw_Data/uk_demand_20190101_20210630.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
 
 dataset, time_refs = data_processing(filepaths = filepaths, labels = windGenLabels)
 # train_set, test_set, time_refs 
