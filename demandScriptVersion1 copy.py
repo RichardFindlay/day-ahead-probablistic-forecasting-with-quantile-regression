@@ -317,6 +317,14 @@ def data_processing(filepaths, labels):
 	# interpolate feature array from 24hrs to 48hrs
 	feature_array = interpolate_4d(feature_array)
 
+	
+	# remove nan values
+	outputs_mask = labels['quantity (MW)'].isna().groupby(labels.index.normalize()).transform('any')
+
+	# apply mask, removing days with more than one nan value
+	feature_array = feature_array[~outputs_mask]
+	labels = labels[~outputs_mask]
+
 
 
 	#Do time feature engineering for input times
@@ -437,9 +445,6 @@ def data_processing(filepaths, labels):
 	#normalise labels
 	scaler = StandardScaler(with_mean=False)
 	labels[['quantity (MW)']] = scaler.fit_transform(labels[['quantity (MW)']])
-
-	print(labels.max())
-	exit()
 
 	time_refs = [in_times, label_times]
 
