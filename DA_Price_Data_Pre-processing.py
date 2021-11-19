@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
 
@@ -8,38 +8,36 @@ import numpy as np
 
 # load input data
 windGen_data = pd.read_csv('./Data/wind/Raw_Data/HH_windGen_V4.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
-solarGen_data = pd.read_csv('./Data/solar/Raw_Data/HH_PVGeneration_v2.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
+solarGen_data = pd.read_csv('./Data/solar/Raw_Data/HH_PVGeneration_v3.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
 demand_data = pd.read_csv('./Data/demand/Raw_Data/uk_demand_20190101_20210630.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
 
 
 # combine vars into feature array
-feature_array = [windGen_data.values, solarGen_data.values, demand_data.values]
+arrays = [windGen_data.values, solarGen_data.values, demand_data.values]
 
-print(windGen_data.values.shape)
-print(solarGen_data.values.shape)
-print(demand_data.values.shape)
-
-# stack features
-feature_array = np.stack(feature_array, axis = -1)
+feature_array = []
 
 # normalise feature array
-for i, array in enumerate(feature_array):
+for i, array in enumerate(arrays):
 	scaler = StandardScaler(with_mean=False) #normalise data
-	feature_array[i] = scaler.fit_transform(array)
+	feature_array.append(scaler.fit_transform(array))
+
+# stack features
+feature_array = np.concatenate(feature_array, axis=-1)
 
 
 # mask data (eliminate nans)
-wind_mask = windGen_data['MW'].isna().groupby(windGen_data.index.normalize()).transform('any')
-solar_mask = solarGen_data['quantity (MW)'].isna().groupby(solarGen_data.index.normalize()).transform('any')
-demand_mask = demand_data['quantity (MW)'].isna().groupby(demand_data.index.normalize()).transform('any')
+wind_mask = windGen_data.iloc[:,-1].isna().groupby(windGen_data.index.normalize()).transform('any')
+solar_mask = solarGen_data.iloc[:,-1].isna().groupby(solarGen_data.index.normalize()).transform('any')
+demand_mask = demand_data.iloc[:,-1].isna().groupby(demand_data.index.normalize()).transform('any')
 
 # eliminate all missing values with common mask
 mask_all = wind_mask + solar_mask + demand_mask
 
 # apply mask, removing days with more than one nan value
-feature_array = feature_array[~outputs_mask]
-labels = labels[~outputs_mask]
-
+feature_array = feature_array[~mask_all]
+# labels = labels[~outputs_mask]
+exit()
 
 
 # time data engineering 
