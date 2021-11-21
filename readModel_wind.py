@@ -35,7 +35,6 @@ from attentionlayer import attention
 import sys
 import h5py
 
-
 type ="wind"
 
 dataset_name = 'train_set_V6_withtimefeatures_120hrinput_float32.hdf5'
@@ -49,8 +48,8 @@ y_len = f['train_set']['y_train'].shape[0]
 print('size parameters loaded')
 f.close()  
 
-input_seq_size = 336
-output_seq_size = 12
+input_seq_size = 672
+output_seq_size = 48
 n_s = 128
 
 # time_set_load = open(f"./Data/{type}/Processed_Data/time_refs_V6_withtimefeatures_120hrinput.pkl", "rb") 
@@ -65,6 +64,18 @@ n_s = 128
 # print('*************************************************')
 # print(time_set['output_times_test'][265:])
 
+# make custom activation - swish
+from keras.backend import sigmoid
+
+def swish(x, beta = 1):
+    return (x * sigmoid(beta * x))
+
+# Getting the Custom object and updating them
+from keras.utils.generic_utils import get_custom_objects
+from keras.layers import Activation
+  
+# Below in place of swish you can take any custom key for the name 
+get_custom_objects().update({'swish': Activation(swish)})
 
 
 
@@ -72,10 +83,11 @@ n_s = 128
 f = h5py.File(f"./Data/{type}/Processed_Data/{dataset_name}", "r")
 
 
-X_train1 = f['test_set']['X1_test']
-X_train2 = f['test_set']['X2_test']
-X_train3 = f['test_set']['X3_test']
-y_train = f['test_set']['y_test']
+X_train1 = f['test_set']['X1_test'][500:4500]
+X_train2 = f['test_set']['X2_test'][500:4500]
+X_train3 = f['test_set']['X3_test'][500:4500]
+X_train4 = f['test_set']['X1_test'][500:4500]
+y_train = f['test_set']['y_test'][500:4500]
 
 
 # X_train1 = f['test_set']['X1_test'][:500]
@@ -91,7 +103,7 @@ print(X_train1.shape)
 
 input_start, output_start = 0, input_seq_size
 
-seqX1, seqX2, seqX3, seqY = [], [], [], []
+seqX1, seqX2, seqX3, seqX4, seqY = [], [], [], [], []
 
 # a = np.array(X_train1)
 
@@ -106,13 +118,16 @@ while (output_start + output_seq_size) <= len(y_train):
 
 	# outputs
 	seqX3.append(X_train3[output_start:output_end])
+	a = X_train4[output_start:output_end][:,:,:,1:]
+	a = np.average(a, axis=(1,2))
+	seqX4.append(a)
 	seqY.append(y_train[output_start:output_end])
 
 	input_start += output_seq_size
 	output_start += output_seq_size
 
 
-x1, x2, x3, y = np.array(seqX1), np.array(seqX2), np.array(seqX3), np.array(seqY)
+x1, x2, x3, x4, y = np.array(seqX1), np.array(seqX2), np.array(seqX3), np.array(seqX4), np.array(seqY)
 f.close() 
 
 print(x1.shape)
@@ -122,45 +137,84 @@ s0 = np.zeros((x1.shape[0], n_s))
 c0 = np.zeros((x1.shape[0], n_s))
 
 
-model = load_model(f'./Models/{type}_models/q_0.5/{type}Generation_forecast_MainModel_Q_0.5.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention})
+model = load_model(f'./Models/{type}_models/q_0.5/{type}Generation_forecast_MainModel_Q_0.5.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
+model1 = load_model(f'./Models/{type}_models/q_0.01/{type}Generation_forecast_MainModel_Q_0.01.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
+model2 = load_model(f'./Models/{type}_models/q_0.99/{type}Generation_forecast_MainModel_Q_0.99.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
+# print(model.summary())
+# print(model.layers[-2].get_config())
+# exit()
+# # x1 = np.average(x1, axis=(2,3))
+# # x1 = x1[:, :, 0:1]
+
+# print(x1.shape)
+# print(c0.shape)
+
+predictions = model.predict([x1, x2, x3, x4, s0, c0])
+predictions1 = model1.predict([x1, x2, x3, x4, s0, c0])
+predictions2 = model2.predict([x1, x2, x3, x4, s0, c0])
+
+# predictions = predictions[0]
+# predictions1 = predictions1[0]
+# predictions2 = predictions2[0]
+
+idx = 20
+plt.plot(predictions[idx:idx+7,:].flatten(), label="prediction_0.5")
+plt.plot(predictions1[idx:idx+7,:].flatten(), label="prediction_0.1")
+plt.plot(predictions2[idx:idx+7,:].flatten(), label="prediction_0.9")
+plt.plot(y[idx:idx+7,:,0].flatten(), label="actual")
+plt.legend()
+plt.show()
 
 
-x1 = np.average(x1, axis=(2,3))
+
+
+
+
+
+
 
 # print(x1.shape)
 # exit()
 
 
-output_len = 336
+# output_len = 336
 
-next_input = x1[0:1,:,0:1] 
+next_input = x1[0:1,:,:,:,0:1] 
+broadcaster = np.ones((1, output_seq_size, next_input.shape[2], next_input.shape[3], 1), dtype=np.float32)
 
 for sample in range(x1.shape[0]):
 
-	x1[sample:sample+1,:,0:1] = next_input 
+	x1[sample:sample+1,:,:,:,0:1] = next_input 
 
-	prediction = model.predict([x1[sample:sample+1,:,:], x2[sample:sample+1,:,:]])
-
+	prediction = model.predict([x1[sample:sample+1,:,:,:,:], x2[sample:sample+1,:,:], x3[sample:sample+1,:,:], x4[sample:sample+1,:,:], s0[sample:sample+1,:], c0[sample:sample+1,:]])
+	prediction1 = model1.predict([x1[sample:sample+1,:,:,:,:], x2[sample:sample+1,:,:], x3[sample:sample+1,:,:], x4[sample:sample+1,:,:], s0[sample:sample+1,:], c0[sample:sample+1,:]])
+	prediction2 = model2.predict([x1[sample:sample+1,:,:,:,:], x2[sample:sample+1,:,:], x3[sample:sample+1,:,:], x4[sample:sample+1,:,:], s0[sample:sample+1,:], c0[sample:sample+1,:]])
 
 	if sample == 0:
-		predictions = np.expand_dims(prediction, axis=-1)
+		predictions = prediction
+		predictions1 = prediction1
+		predictions2 = prediction2
 	else:
-		predictions = np.concatenate([predictions, np.expand_dims(prediction, axis=-1)], axis=0)
+		predictions = np.concatenate([predictions, prediction], axis=0)
+		predictions1 = np.concatenate([predictions1, prediction1], axis=0)
+		predictions2 = np.concatenate([predictions2, prediction2], axis=0)
 
-	print(next_input.shape)
-	print(prediction.shape)
+	# print(next_input.shape)
+	# print(prediction.shape)
 
-
-	next_input = np.concatenate([next_input, np.expand_dims(prediction, axis=-1)], axis=1)[0:1, -336:, 0:1]
-
-
-	print(next_input.shape)
-	exit()
-
-
+	prediction_transform =  broadcaster * np.expand_dims(np.expand_dims(prediction, axis=-1), axis=-1)
+	# print(prediction_transform.shape)
+	# print(next_input.shape)
+	next_input = np.concatenate([next_input, prediction_transform], axis=1)[0:1, -input_seq_size:, :, :, 0:1]
 
 
-print(out.shape)
+	# print(next_input.shape)
+	# exit()
+
+
+
+
+# print(out.shape)
 # exit()
 # index = 0
 # predictions = []
@@ -181,11 +235,13 @@ print(out.shape)
 # print(y.shape)
 # exit()
 
-predictions = out
+# predictions = out
 
-idx = 39
-plt.plot(predictions[idx:idx+14,:].flatten(), label="prediction")
-plt.plot(y[idx:idx+14,:,0].flatten(), label="actual")
+# idx = 22
+plt.plot(predictions[idx:idx+7,:].flatten(), label="prediction_0.5")
+plt.plot(predictions1[idx:idx+7,:].flatten(), label="prediction_0.1")
+plt.plot(predictions2[idx:idx+7,:].flatten(), label="prediction_0.9")
+plt.plot(y[idx:idx+7,:,0].flatten(), label="actual")
 plt.legend()
 plt.show()
 
@@ -195,7 +251,7 @@ def correlation_analysis(X, Y):
 	rs = np.empty((X.shape[0], 1))
 	#caclulate 'R^2' for each feature - average over all days
 	for l in range(X.shape[0]):
-		slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(X[l,:], Y[l,:,0])
+		slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(X[l,:,0], Y[l,:,0])
 		rs[l, 0] =r_value**2
 		
 
@@ -212,6 +268,8 @@ def correlation_analysis(X, Y):
 
 	return 
 
+print(predictions.shape)
+print(y.shape)
 
 correlation_analysis(predictions, y)
 
