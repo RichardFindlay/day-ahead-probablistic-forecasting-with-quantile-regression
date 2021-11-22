@@ -550,7 +550,7 @@ filepaths = {
 }
 
 #load labels (solar generation per HH)
-windGenLabels = pd.read_csv('./Data/demand/Raw_Data/uk_demand_20190101_20210630.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
+windGenLabels = pd.read_csv('./Data/demand/Raw_Data/uk_demand_20190101_20210630_V2.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
 
 dataset, time_refs = data_processing(filepaths = filepaths, labels = windGenLabels)
 # train_set, test_set, time_refs 

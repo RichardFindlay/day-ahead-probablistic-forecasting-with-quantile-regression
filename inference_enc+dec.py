@@ -40,9 +40,16 @@ import h5py
 
 
 
-type ="wind"
+type ="demand"
 
-dataset_name = 'train_set_V6_withtimefeatures_120hrinput_float32.hdf5'
+if type == 'wind':
+	dataset_name = 'train_set_V6_withtimefeatures_120hrinput_float32.hdf5'
+elif type == 'demand':
+	dataset_name = 'dataset_V1_withtimefeatures_Demand.hdf5'
+elif type == 'solar':
+	dataset_name = 'train_set_V21_withtimefeatures_120hrinput.hdf5'
+
+# dataset_name = 'train_set_V6_withtimefeatures_120hrinput_float32.hdf5'
 f = h5py.File(f"./Data/{type}/Processed_Data/{dataset_name}", "r")
 features = np.empty_like(f['train_set']['X1_train'][0])
 times_in = np.empty_like(f['train_set']['X2_train'][0])
@@ -142,7 +149,7 @@ s0 = np.zeros((x1.shape[0], n_s))
 c0 = np.zeros((x1.shape[0], n_s))
 
 
-model = load_model(f'./Models/{type}_models/q_0.99/{type}Generation_forecast_MainModel_Q_0.99.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
+model = load_model(f'./Models/{type}_models/q_0.5/{type}Generation_forecast_MainModel_Q_0.5.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
 # model1 = load_model(f'./Models/{type}_models/q_0.01/{type}Generation_forecast_MainModel_Q_0.01.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
 # model2 = load_model(f'./Models/{type}_models/q_0.99/{type}Generation_forecast_MainModel_Q_0.99.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
 # print(model.summary())
@@ -182,8 +189,8 @@ times_out_dim = times_out.shape[-1]
 n_s = 128
 
 
-enoder_temporal_model = load_model(f'./Models/{type}_models/q_0.99/{type}Generation_encoderModel_temporal_Q_0.99.h5')
-enoder_spatial_model = load_model(f'./Models/{type}_models/q_0.99/{type}Generation_encoderModel_spatial_Q_0.99.h5')
+enoder_temporal_model = load_model(f'./Models/{type}_models/q_0.5/{type}Generation_encoderModel_temporal_Q_0.5.h5')
+enoder_spatial_model = load_model(f'./Models/{type}_models/q_0.5/{type}Generation_encoderModel_spatial_Q_0.5.h5')
 
 
 def inference_model():
