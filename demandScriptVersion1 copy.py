@@ -326,7 +326,6 @@ def data_processing(filepaths, labels):
 	labels = labels[~outputs_mask]
 
 
-
 	#Do time feature engineering for input times
 	times_in = pd.DataFrame({"datetime": times_in})
 	times_in['datetime'] = times_in['datetime'].astype('str')
@@ -430,7 +429,7 @@ def data_processing(filepaths, labels):
 	times_out_month_cos = np.expand_dims(np.cos(2*np.pi*df_times_outputs['month']/np.max(df_times_outputs['month'])), axis=-1)
 
 	# create sin / cos of output year
-	times_out_year = np.expand_dims((df_times_outputs['year'].values - np.min(df_times_outputs['year'])) / (np.max(df_times_outputs['year']) - np.min(df_times_outputs['year'])), axis=-1)
+	# times_out_year = np.expand_dims((df_times_outputs['year'].values - np.min(df_times_outputs['year'])) / (np.max(df_times_outputs['year']) - np.min(df_times_outputs['year'])), axis=-1)
 
 	# create sin / cos of output day of week
 	times_out_DoW_sin = np.expand_dims(np.sin(2*np.pi*df_times_outputs['day_of_week']/np.max(df_times_outputs['day_of_week'])), axis=-1)
@@ -460,7 +459,7 @@ def data_processing(filepaths, labels):
 	# cyclic method
 	# input_times = np.concatenate((times_in_hour_sin, times_in_hour_cos, times_in_month_sin, times_in_month_cos), axis=-1) swtich to output times for HH periods
 	output_times = np.concatenate((times_out_hour_sin, times_out_hour_cos, times_out_month_sin, times_out_month_cos, times_out_DoW_sin, times_out_DoW_cos,
-									 times_out_DoY_sin, times_out_DoY_cos, times_out_year, weekends, holidays), axis=-1)
+									 times_out_DoY_sin, times_out_DoY_cos, weekends, holidays), axis=-1)
 
 
 	labels = labels.values
@@ -503,6 +502,8 @@ def data_processing(filepaths, labels):
 	# output_test_seq = test_split_seq + (output_seq_size - 1)
 
 
+
+
 	#divide into timesteps & train and test sets
 	# dataset, time_refs = format_data_into_timesteps(X1 = feature_array, X2 = input_times , X3 = output_times, Y = labels, input_seq_size = 240, output_seq_size = 48, input_times_reference = time_refs[1], output_times_reference = time_refs[1]) # converting from 24hr to 48hr inputs hence can use output time references
 
@@ -523,11 +524,13 @@ def data_processing(filepaths, labels):
 		}
 
 	time_refs = {
-		'input_times_train': in_times[:-test_split_seq],
-		'input_times_test': in_times[-test_split_seq:], 
+		'input_times_train': label_times[:-test_split_seq],
+		'input_times_test': label_times[-test_split_seq:], 
 		'output_times_train': label_times[:-test_split_seq],
 		'output_times_test': label_times[-test_split_seq:]
 	}
+
+
 
 	# def to_float32(input_dict):
 	# 	for idx, key in enumerate(input_dict.keys()):
@@ -555,23 +558,23 @@ windGenLabels = pd.read_csv('./Data/demand/Raw_Data/uk_demand_20190101_20210630_
 dataset, time_refs = data_processing(filepaths = filepaths, labels = windGenLabels)
 # train_set, test_set, time_refs 
 
-# print(*[f'{key}: {train_set[key].shape}' for key in train_set.keys()], sep='\n')
-# print(*[f'{key}: {test_set[key].shape}' for key in test_set.keys()], sep='\n')
-
 # #save training set as dictionary
 # with open("./Data/wind/Processed_Data/train_set_V1_withtimefeatures_96hrinput_24hrs.pkl", "wb") as trainset:
 # 	dump(train_set, trainset)
+print(*[f'{key}: {dataset["train_set"][key].shape}' for key in dataset['train_set'].keys()], sep='\n')
+print(*[f'{key}: {dataset["test_set"][key].shape}' for key in dataset['test_set'].keys()], sep='\n')
+
 
 # #save training set as dictionary
 # with open("./Data/wind/Processed_Data/test_set_V1_withtimefeatures_96hrinput_24hrs.pkl", "wb") as testset:
 # 	dump(test_set, testset)		
 	
 # #save time timeseries (inputs & outputs) for reference
-with open("./Data/demand/Processed_Data/time_refs_V1_withtimefeatures_Demand.pkl", "wb") as times:
+with open("./Data/demand/Processed_Data/time_refs_V2_withtimefeatures_Demand.pkl", "wb") as times:
 	dump(time_refs, times)
 
 # save training set as dictionary (h5py dump)
-f = h5py.File('./Data/demand/Processed_Data/dataset_V1_withtimefeatures_Demand.hdf5', 'w')
+f = h5py.File('./Data/demand/Processed_Data/dataset_V2_withtimefeatures_Demand.hdf5', 'w')
 
 for group_name in dataset:
 	group = f.create_group(group_name)

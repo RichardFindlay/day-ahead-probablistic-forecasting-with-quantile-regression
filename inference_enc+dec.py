@@ -40,7 +40,7 @@ import h5py
 
 
 
-type ="demand"
+type ="wind"
 
 if type == 'wind':
 	dataset_name = 'train_set_V6_withtimefeatures_120hrinput_float32.hdf5'
@@ -95,11 +95,13 @@ get_custom_objects().update({'swish': Activation(swish)})
 f = h5py.File(f"./Data/{type}/Processed_Data/{dataset_name}", "r")
 
 
-X_train1 = f['test_set']['X1_test'][500:4500]
-X_train2 = f['test_set']['X2_test'][500:4500]
-X_train3 = f['test_set']['X3_test'][500:4500]
-X_train4 = f['test_set']['X1_test'][500:4500]
-y_train = f['test_set']['y_test'][500:4500]
+set_type = 'train'
+
+X_train1 = f[f'{set_type}_set'][f'X1_{set_type}'][4500:8500]
+X_train2 = f[f'{set_type}_set'][f'X2_{set_type}'][4500:8500]
+X_train3 = f[f'{set_type}_set'][f'X3_{set_type}'][4500:8500]
+X_train4 = f[f'{set_type}_set'][f'X1_{set_type}'][4500:8500]
+y_train = f[f'{set_type}_set'][f'y_{set_type}'][4500:8500]
 
 
 # X_train1 = f['test_set']['X1_test'][:500]
@@ -149,7 +151,7 @@ s0 = np.zeros((x1.shape[0], n_s))
 c0 = np.zeros((x1.shape[0], n_s))
 
 
-model = load_model(f'./Models/{type}_models/q_0.5/{type}Generation_forecast_MainModel_Q_0.5.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
+model = load_model(f'./Models/{type}_models/q_0.99/{type}Generation_forecast_MainModel_Q_0.99.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
 # model1 = load_model(f'./Models/{type}_models/q_0.01/{type}Generation_forecast_MainModel_Q_0.01.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
 # model2 = load_model(f'./Models/{type}_models/q_0.99/{type}Generation_forecast_MainModel_Q_0.99.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
 # print(model.summary())
@@ -189,8 +191,8 @@ times_out_dim = times_out.shape[-1]
 n_s = 128
 
 
-enoder_temporal_model = load_model(f'./Models/{type}_models/q_0.5/{type}Generation_encoderModel_temporal_Q_0.5.h5')
-enoder_spatial_model = load_model(f'./Models/{type}_models/q_0.5/{type}Generation_encoderModel_spatial_Q_0.5.h5')
+enoder_temporal_model = load_model(f'./Models/{type}_models/q_0.99/{type}Generation_encoderModel_temporal_Q_0.99.h5')
+enoder_spatial_model = load_model(f'./Models/{type}_models/q_0.99/{type}Generation_encoderModel_spatial_Q_0.99.h5')
 
 
 def inference_model():
@@ -247,7 +249,7 @@ decoder_model = inference_model()
 next_input = x1[0:1,:,:,:,0:1] 
 broadcaster = np.ones((1, output_seq_size, next_input.shape[2], next_input.shape[3], 1), dtype=np.float32)
 
-for sample in range(20, 30):
+for sample in range(50, 60):
 	print(sample)
 
 	# x1[sample:sample+1,:,:,:,0:1] = next_input 
@@ -258,8 +260,8 @@ for sample in range(20, 30):
 	# lstm encoder
 	encoder_out, enc_s_state, enc_c_state = enoder_temporal_model.predict([x1[sample:sample+1,:,:,:,:], x2[sample:sample+1,:,:]])
 
-	if sample == 20:
-		s_state, c_state= enc_s_state, enc_c_state
+	if sample == 50:
+		s_state, c_state = enc_s_state, enc_c_state
 
 
 	# call decoder
@@ -267,7 +269,7 @@ for sample in range(20, 30):
 	prediction, s_state, c_state = decoder_model.predict([ccn_enc_output, encoder_out, x3[sample:sample+1,:,:], x4[sample:sample+1,:,:],  s_state, c_state])
 	
 
-	if sample == 20:
+	if sample == 50:
 		predictions = prediction
 	else:
 		predictions = np.concatenate([predictions, prediction], axis=0)
@@ -281,7 +283,7 @@ idx = 0
 plt.plot(predictions[idx:idx+7,:].flatten(), label="prediction_0.5")
 # plt.plot(predictions1[idx:idx+7,:].flatten(), label="prediction_0.1")
 # plt.plot(predictions2[idx:idx+7,:].flatten(), label="prediction_0.9")
-plt.plot(y[20:20+7,:,0].flatten(), label="actual")
+plt.plot(y[50:50+7,:,0].flatten(), label="actual")
 plt.legend()
 plt.show()
 

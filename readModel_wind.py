@@ -59,17 +59,22 @@ input_seq_size = 672
 output_seq_size = 48
 n_s = 128
 
-# time_set_load = open(f"./Data/{type}/Processed_Data/time_refs_V6_withtimefeatures_120hrinput.pkl", "rb") 
-# time_set = load(time_set_load)
-# time_set_load.close()
+time_set_load = open(f"./Data/{type}/Processed_Data/time_refs_V1_withtimefeatures_Demand.pkl", "rb") # demand
+# time_set_load = open(f"./Data/{type}/Processed_Data/time_refs_V6_withtimefeatures_120hrinput.pkl", "rb") # wind
+
+time_set = load(time_set_load)
+time_set_load.close()
 
 # idx =0
 # print('time check')
 # print(len(time_set['input_times_test']))
 # print(len(time_set['output_times_test']))
-# print(time_set['input_times_test'])
-# print('*************************************************')
-# print(time_set['output_times_test'][265:])
+print(time_set['input_times_test'][0])
+# print(time_set['input_times_test'][0:10])
+print('*************************************************')
+# print(time_set['output_times_test'][0:10])
+print(time_set['output_times_test'][0])
+exit()
 
 # make custom activation - swish
 from keras.backend import sigmoid
@@ -89,11 +94,13 @@ get_custom_objects().update({'swish': Activation(swish)})
 # split test data into sequences
 f = h5py.File(f"./Data/{type}/Processed_Data/{dataset_name}", "r")
 
-X_train1 = f['test_set']['X1_test'][500:4500]
-X_train2 = f['test_set']['X2_test'][500:4500]
-X_train3 = f['test_set']['X3_test'][500:4500]
-X_train4 = f['test_set']['X1_test'][500:4500]
-y_train = f['test_set']['y_test'][500:4500]
+set_type = 'train'
+
+X_train1 = f[f'{set_type}_set'][f'X1_{set_type}'][0:2000]
+X_train2 = f[f'{set_type}_set'][f'X2_{set_type}'][0:2000]
+X_train3 = f[f'{set_type}_set'][f'X3_{set_type}'][0:2000]
+X_train4 = f[f'{set_type}_set'][f'X1_{set_type}'][0:2000]
+y_train = f[f'{set_type}_set'][f'y_{set_type}'][0:2000]
 
 
 # X_train1 = f['test_set']['X1_test'][:500]
@@ -144,8 +151,8 @@ c0 = np.zeros((x1.shape[0], n_s))
 
 
 model = load_model(f'./Models/{type}_models/q_0.5/{type}Generation_forecast_MainModel_Q_0.5.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
-model1 = load_model(f'./Models/{type}_models/q_0.1/{type}Generation_forecast_MainModel_Q_0.1.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
-model2 = load_model(f'./Models/{type}_models/q_0.9/{type}Generation_forecast_MainModel_Q_0.9.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
+model1 = load_model(f'./Models/{type}_models/q_0.01/{type}Generation_forecast_MainModel_Q_0.01.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
+model2 = load_model(f'./Models/{type}_models/q_0.99/{type}Generation_forecast_MainModel_Q_0.99.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
 print(model2.summary())
 print(model2.layers[-1].get_config())
 # exit()
@@ -163,7 +170,7 @@ predictions2 = model2.predict([x1, x2, x3, x4, s0, c0])
 # predictions1 = predictions1[0]
 # predictions2 = predictions2[0]
 
-idx = 50
+idx = 0
 plt.plot(predictions[idx:idx+7,:].flatten(), label="prediction_0.5")
 plt.plot(predictions1[idx:idx+7,:].flatten(), label="prediction_0.1")
 plt.plot(predictions2[idx:idx+7,:].flatten(), label="prediction_0.9")
