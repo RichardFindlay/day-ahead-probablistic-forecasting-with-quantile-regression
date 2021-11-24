@@ -29,6 +29,7 @@ cal = UnitedKingdom()
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 np.set_printoptions(threshold=sys.maxsize)
+np.random.seed(100)
 
 ###########################################_____LOAD & PRE-PROCESS DATA_____###########################################
 
@@ -325,6 +326,26 @@ def data_processing(filepaths, labels):
 	feature_array = feature_array[~outputs_mask]
 	labels = labels[~outputs_mask]
 
+	# shuffle dataset by days
+	# day_len = 48 # HH periods
+	# day_shuffle = np.arange(0, len(labels), day_len)
+	# np.random.shuffle(day_shuffle)
+
+	# hour_shuffle = []
+	# for iidx in day_shuffle:
+	# 	hours = np.arange(iidx, iidx+48)
+	# 	hour_shuffle.append(hours)
+
+	# hour_shuffle = np.concatenate(hour_shuffle)
+
+	# df_index_shuffle = labels.index.values
+	# df_index_shuffle = df_index_shuffle.astype('datetime64[ns]')
+	# df_index_shuffle = df_index_shuffle[hour_shuffle]
+
+	# print(hour_shuffle)
+	# feature_array = feature_array[hour_shuffle]
+	# labels = labels.reindex(df_index_shuffle)
+
 
 	#Do time feature engineering for input times
 	times_in = pd.DataFrame({"datetime": times_in})
@@ -429,7 +450,7 @@ def data_processing(filepaths, labels):
 	times_out_month_cos = np.expand_dims(np.cos(2*np.pi*df_times_outputs['month']/np.max(df_times_outputs['month'])), axis=-1)
 
 	# create sin / cos of output year
-	# times_out_year = np.expand_dims((df_times_outputs['year'].values - np.min(df_times_outputs['year'])) / (np.max(df_times_outputs['year']) - np.min(df_times_outputs['year'])), axis=-1)
+	times_out_year = np.expand_dims((df_times_outputs['year'].values - np.min(df_times_outputs['year'])) / (np.max(df_times_outputs['year']) - np.min(df_times_outputs['year'])), axis=-1)
 
 	# create sin / cos of output day of week
 	times_out_DoW_sin = np.expand_dims(np.sin(2*np.pi*df_times_outputs['day_of_week']/np.max(df_times_outputs['day_of_week'])), axis=-1)
@@ -459,7 +480,7 @@ def data_processing(filepaths, labels):
 	# cyclic method
 	# input_times = np.concatenate((times_in_hour_sin, times_in_hour_cos, times_in_month_sin, times_in_month_cos), axis=-1) swtich to output times for HH periods
 	output_times = np.concatenate((times_out_hour_sin, times_out_hour_cos, times_out_month_sin, times_out_month_cos, times_out_DoW_sin, times_out_DoW_cos,
-									 times_out_DoY_sin, times_out_DoY_cos, weekends, holidays), axis=-1)
+									 times_out_DoY_sin, times_out_DoY_cos, times_out_year, weekends, holidays), axis=-1)
 
 
 	labels = labels.values
@@ -570,11 +591,11 @@ print(*[f'{key}: {dataset["test_set"][key].shape}' for key in dataset['test_set'
 # 	dump(test_set, testset)		
 	
 # #save time timeseries (inputs & outputs) for reference
-with open("./Data/demand/Processed_Data/time_refs_V2_withtimefeatures_Demand.pkl", "wb") as times:
+with open("./Data/demand/Processed_Data/time_refs_V3_withtimefeatures_Demand.pkl", "wb") as times:
 	dump(time_refs, times)
 
 # save training set as dictionary (h5py dump)
-f = h5py.File('./Data/demand/Processed_Data/dataset_V2_withtimefeatures_Demand.hdf5', 'w')
+f = h5py.File('./Data/demand/Processed_Data/dataset_V3_withtimefeatures_Demand.hdf5', 'w')
 
 for group_name in dataset:
 	group = f.create_group(group_name)
