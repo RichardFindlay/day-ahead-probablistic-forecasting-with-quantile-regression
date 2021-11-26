@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from pickle import dump
+import h5py
 
 from workalendar.europe import UnitedKingdom
 cal = UnitedKingdom()
@@ -16,6 +18,9 @@ demand_data = pd.read_csv('./Data/demand/Raw_Data/uk_demand_20190101_20210630.cs
 # load labels
 price_data = pd.read_csv('./Data/DA_Price/Raw_Data/N2EX_UK_DA_Auction_Hourly_Prices_2019_2021_V2.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
 
+# interpolate hourly prices into HH resolution
+price_data = price_data.reindex(pd.date_range(start=price_data.index.min(), end=price_data.index.max() + pd.Timedelta(minutes=30), freq='30T'))  
+price_data = price_data.interpolate()
 
 # combine vars into feature array
 arrays = [windGen_data.values, solarGen_data.values, demand_data.values]
@@ -31,10 +36,8 @@ for i, array in enumerate(arrays):
 scaler = StandardScaler(with_mean=False) #normalise data
 price_data = scaler.fit_transform(price_data.values)
 
-
 # stack features
 feature_array = np.concatenate(feature_array, axis=-1)
-
 
 # mask data (eliminate nans)
 wind_mask = windGen_data.iloc[:,-1].isna().groupby(windGen_data.index.normalize()).transform('any')
@@ -109,58 +112,56 @@ weekends = np.expand_dims(df_times_outputs['weekend'].values, axis =-1)
 holidays = np.expand_dims(df_times_outputs['holiday'].values, axis =-1)
 
 
-output_times = np.concatenate((times_out_hour_sin, times_out_hour_cos, times_out_month_sin, times_out_month_cos, times_out_DoW_sin, times_out_DoW_cos,
+time_features = np.concatenate((times_out_hour_sin, times_out_hour_cos, times_out_month_sin, times_out_month_cos, times_out_DoW_sin, times_out_DoW_cos,
 								 times_out_DoY_sin, times_out_DoY_cos, times_out_year, weekends, holidays), axis=-1)
 
 
-test_split_seq = 4800 # use the last 100 days, around 10%
-
-
 # combine demand / solar / wind with time features
-combined_data = np.concatenate([feature_array, output_times], axis=-1)
+# combined_data = np.concatenate([feature_array, output_times], axis=-1)
 
-print(price_data.shape)
-print(combined_data.shape)
-
-
-
-
-exit()
-
-
-
-
-
+test_split_seq = 4800 # use the last 100 days, around 10%
 
 
 # split data into train and test sets
 dataset = {
 	'train_set' : {
-		'X_train': combined_data[:-test_split_seq],
-		'y_train': labels[:-test_split_seq] 
+		'X1_train': feature_array[:-test_split_seq],
+		'X2_train': time_features[:-test_split_seq],
+		'y_train': price_data[:-test_split_seq] 
 		},
 	'test_set' : {
-		'X_test': combined_data[-test_split_seq:],
-		'y_test': labels[-test_split_seq:] 
+		'X1_test': feature_array[-test_split_seq:],
+		'X2_train': time_features[:-test_split_seq],
+		'y_test': price_data[-test_split_seq:] 
 		}
 	}
 
 time_refs = {
-	'input_times_train': in_times[:-test_split_seq],
-	'input_times_test': in_times[-test_split_seq:], 
-	'output_times_train': label_times[:-test_split_seq],
-	'output_times_test': label_times[-test_split_seq:]
+	'input_times_train': time_refs[:-test_split_seq],
+	'input_times_test': time_refs[-test_split_seq:], 
+	'output_times_train': time_refs[:-test_split_seq],
+	'output_times_test': time_refs[-test_split_seq:]
 }
 
 
-
-
-
-
+# print data for info
+print(*[f'{key}: {dataset["train_set"][key].shape}' for key in dataset['train_set'].keys()], sep='\n')
+print(*[f'{key}: {dataset["test_set"][key].shape}' for key in dataset['test_set'].keys()], sep='\n')
 
 
 # save dataset
+with open("./Data/DA_Price/Processed_Data/time_refs_V1_DAprice.pkl", "wb") as times:
+	dump(time_refs, times)
 
+
+# save training set as dictionary (h5py dump)
+f = h5py.File('./Data/DA_Price/Processed_Data/dataset_V1_DAprice.hdf5', 'w')
+
+for group_name in dataset:
+	group = f.create_group(group_name)
+	for dset_name in dataset[group_name]:
+		dset = group.create_dataset(dset_name, data = dataset[group_name][dset_name])
+f.close()
 
 
 
