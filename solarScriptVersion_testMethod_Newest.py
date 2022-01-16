@@ -34,7 +34,7 @@ if model_type == 'wind':
 elif model_type == 'demand':
 	dataset_name = 'dataset_V2_withtimefeatures_Demand.hdf5'
 elif model_type == 'solar':
-	dataset_name = 'train_set_V21_withtimefeatures_120hrinput.hdf5'
+	dataset_name = 'dataset_solar_v25.hdf5'
 elif model_type == 'price':
 	dataset_name = 'dataset_V1_DAprice.hdf5'
 
@@ -67,7 +67,6 @@ output_seq_size = 48
 print(x_len)
 print(y_len)
 
-f.close()
 
 ###########################################_____DATA_GENERATOR_____#################################################
 
@@ -241,6 +240,52 @@ class attention(tf.keras.layers.Layer):
 		config.update({"hidden_units": self.hidden_units})
 		return config
 
+# class attention(tf.keras.layers.Layer):
+
+# 	def __init__(self, hidden_units, **kwargs):
+# 		# super(attention, self).__init__(hidden_units)
+# 		self.hidden_units = hidden_units
+# 		super(attention, self).__init__(**kwargs)
+
+
+# 	def build(self, input_shape):
+
+# 		self.W=self.add_weight(name='attention_weight', shape=(input_shape[-1],1), 
+#                                initializer='random_normal', trainable=True)
+# 		self.b=self.add_weight(name='attention_bias', shape=(input_shape[1],1), 
+#                                initializer='zeros', trainable=True)        
+# 		super(attention, self).build(input_shape)
+
+# 	def call(self, enc_output, h_state, c_state):
+
+# 		# Alignment scores. Pass them through tanh function
+# 		e = K.tanh(K.dot(enc_output,self.W)+self.b)
+# 		# Remove dimension of size 1
+# 		e = K.squeeze(e, axis=-1)   
+# 		# Compute the weights
+# 		alpha = K.softmax(e)
+# 		# Reshape to tensorFlow format
+# 		alpha = K.expand_dims(alpha, axis=-1)
+# 		# Compute the context vector
+# 		context = enc_output * alpha
+# 		context = K.sum(context, axis=1)
+# 		context = RepeatVector(Ty)(context)
+
+# 		return [alpha, context]
+
+# 	def compute_output_shape(self):
+# 		return [(input_shape[0], Tx, 1), (input_shape[0], 1, n_s)]
+
+# 	def get_config(self):
+# 		config = super(attention, self).get_config()
+# 		config.update({"hidden_units": self.hidden_units})
+# 		return config
+
+
+
+
+
+
 
 # instantiate attention layers
 temporal_attn = attention(n_s, name="temporal_attention")
@@ -307,9 +352,9 @@ get_custom_objects().update({'swish': Activation(swish)})
   
 
 # layer for output predictions
-predict_1 = Conv1D(64, kernel_size=1, strides=1, padding="same", activation="relu", name='conv1_q')
-predict_2 = Conv1D(16, kernel_size=1, strides=1, padding="same", activation="relu", name='conv2_q')
-predict_3 = Conv1D(1, kernel_size=1, strides=1, padding="same", activation="linear", name='conv3_q')
+# predict_1 = Conv1D(64, kernel_size=1, strides=1, padding="same", activation="swish", name='conv1_q')
+# predict_2 = Conv1D(16, kernel_size=1, strides=1, padding="same", activation="swish", name='conv2_q')
+# predict_3 = Conv1D(1, kernel_size=1, strides=1, padding="same", activation="linear", name='conv3_q')
 
 # predict_1 = Dense(64, activation="swish")
 # predict_2 = Dense(16,  activation="swish")
@@ -363,18 +408,18 @@ c_state = enc_c_state
 # for t in range(Ty):
 
 # get context matrix (temporal)
-attn_weights_temp, context_temp = temporal_attn(lstm_enc_output, s_state, c_state)
+# attn_weights_temp, context_temp = temporal_attn(lstm_enc_output, s_state, c_state)
 
 # get context matrix (spatial)
-attn_weights_spat, context_spat = spatial_attn(ccn_enc_output, s_state, c_state)
+# attn_weights_spat, context_spat = spatial_attn(ccn_enc_output, s_state, c_state)
 
 # combine spatial and temporal context
-context = concatenate([context_temp, context_spat], axis=-1) 
+# context = concatenate([context_temp, context_spat], axis=-1) 
 
 # print(context.shape)
 
-decoder_input = concatenate([context_spat, times_out], axis=-1) 
-decoder_input = concatenate([decoder_input, out_nwp], axis=-1)  
+# decoder_input = concatenate([context, times_out], axis=-1) 
+# decoder_input = concatenate([decoder_input, out_nwp], axis=-1)  
 
 # get the previous value for teacher forcing
 # decoder_input = concatenate([context, y_prev], axis=-1)
@@ -388,21 +433,38 @@ decoder_input = concatenate([decoder_input, out_nwp], axis=-1)
 # decoder_input = Dropout(0.2)(decoder_input)
 # decoder_input = concatenate([decoder_input, times_out_single], axis=-1)
 
+all_predictions = {}
+combined_predictions = []
+
 # call decoder
-dec_output, s_state, c_state = decoder(decoder_input, s_state, c_state)
+for q in quantiles: 
+
+	# get context matrix (temporal)
+	attn_weights_temp, context_temp = attention(n_s, name=f"temporal_attention_q_{q}")(lstm_enc_output, s_state, c_state)
+
+	# get context matrix (spatial)
+	attn_weights_spat, context_spat = attention(n_s, name=f"spatial_attention_q_{q}")(ccn_enc_output, s_state, c_state)
+
+	# combine spatial and temporal context
+	context = concatenate([context_temp, context_spat], axis=-1) 
+
+	# print(context.shape)
+
+	decoder_input = concatenate([context, times_out], axis=-1) 
+	decoder_input = concatenate([decoder_input, out_nwp], axis=-1)  
+
+
+	# dec_output, s_state, c_state = decoder(decoder_input, s_state, c_state)
+	dec_output, _ , _ = state = LSTM(n_s, return_sequences = True, return_state = True, name=f'decoder_q_{q}')(decoder_input, initial_state = [s_state, c_state])
 
 # get final predicted value
 # output = predict_1(dec_output)	
 # output = predict_2(output)
 # predictions = predict_3(output)
 
-all_predictions = {}
-combined_predictions = []
-
-for q in quantiles: 
-	predict_1 = Conv1D(64, kernel_size=1, strides=1, padding="same", activation="relu", name=f'conv1_q_{q}')(dec_output)
-	predict_2 = Conv1D(16, kernel_size=1, strides=1, padding="same", activation="relu", name=f'conv2_q_{q}')(predict_1)
-	all_predictions[f'predict_{q}'] = Conv1D(1, kernel_size=1, strides=1, padding="same", activation="linear", name=f'conv3_q_{q}')(predict_2)
+	predict_1 = TimeDistributed(Dense(64, activation="relu", name=f'conv1_q_{q}'))(dec_output)
+	# predict_2 = Conv1D(16, kernel_size=1, strides=1, padding="same", activation="swish", name=f'conv2_q_{q}')(predict_1)
+	all_predictions[f'predict_{q}'] = TimeDistributed(Dense(1, activation="linear", name=f'dense_q_{q}'))(predict_1)
 	combined_predictions.append(all_predictions[f'predict_{q}'])
 
 # combined_predictions  = concatenate(combined_predictions, axis=-1)  
@@ -604,7 +666,7 @@ model.save(f'/content/drive/My Drive/{model_type}Models/q_{q}/{model_type}Genera
 # enoder_spatial_model.save(f'/content/drive/My Drive/{model_type}Models/q_{q}/{model_type}Generation_encoderModelSpatial' + '_Q_%s' %(q) + '.h5')
 print('predicting')
 predictions = model.predict(training_generator)
-predictions = predictions[0]
+# predictions = predictions[0]
 
 with open(f"/content/drive/My Drive//windModels/predictions_{q}.pkl", "wb") as y_hat:
     dump(predictions, y_hat)
@@ -613,10 +675,14 @@ K.clear_session()
 
 print('predicting')
 predictions = model.predict(training_generator)
-predictions = predictions[0]
+predictions1 = predictions[0]
+predictions2 = predictions[1]
+predictions3 = predictions[2]
 
-idx = 85
-plt.plot(predictions[idx:idx+7,:].flatten(), label="prediction")
+idx = 84
+plt.plot(predictions1[idx:idx+7,:].flatten(), label="0.1")
+plt.plot(predictions2[idx:idx+7,:].flatten(), label="0.5")
+plt.plot(predictions3[idx:idx+7,:].flatten(), label="0.9")
 # plt.plot(y[idx:idx+7,:,0].flatten(), label="actual")
 plt.legend()
 plt.show()
