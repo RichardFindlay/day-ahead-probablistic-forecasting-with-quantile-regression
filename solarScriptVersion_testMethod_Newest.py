@@ -27,7 +27,7 @@ import seaborn as sns
 import random
 
 ###########################################_____LOAD_PROCESSED_DATA_____############################################
-model_type ="solar"
+model_type ="wind"
 
 if model_type == 'wind':
 	dataset_name = 'train_set_V100.hdf5'
@@ -311,7 +311,7 @@ def cnn_encoder(ccn_input):
 	return ccn_enc_output
 
 # encoder layers
-lstm_encoder = LSTM(n_s, return_sequences = True, return_state = True)
+lstm_encoder = Bidirectional(LSTM(n_s, return_sequences = True, return_state = True))
 
 
 def encoder(input, times_in):
@@ -321,11 +321,14 @@ def encoder(input, times_in):
 	# concat input time features with input
 	enc_output = concatenate([enc_output, times_in], axis=-1)
 
-	enc_output, enc_h, enc_s = lstm_encoder(enc_output)
+	enc_output, forward_h, forward_c, backward_h, backward_c = lstm_encoder(enc_output)
+
+	enc_h = concatenate([forward_h, backward_h], axis=-1)
+	enc_s = concatenate([forward_c, backward_c], axis=-1)
 
 	return enc_output, enc_h, enc_s
 
-lstm_decoder = LSTM(n_s, return_sequences = True, return_state = True)
+lstm_decoder = LSTM(n_s * 2, return_sequences = True, return_state = True)
 
 def decoder(context, h_state, cell_state):
 
@@ -455,7 +458,7 @@ for q in quantiles:
 
 
 	# dec_output, s_state, c_state = decoder(decoder_input, s_state, c_state)
-	dec_output, _ , _ = state = LSTM(n_s, return_sequences = True, return_state = True, name=f'decoder_q_{q}')(decoder_input, initial_state = [s_state, c_state])
+	dec_output, _ , _ = state = LSTM(n_s*2, return_sequences = True, return_state = True, name=f'decoder_q_{q}')(decoder_input, initial_state = [s_state, c_state])
 
 # get final predicted value
 # output = predict_1(dec_output)	
