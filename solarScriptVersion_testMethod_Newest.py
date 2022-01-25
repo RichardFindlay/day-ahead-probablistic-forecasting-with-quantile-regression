@@ -8,7 +8,7 @@ import h5py
 
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Conv1D, Conv2D, Softmax, Bidirectional, Dense, TimeDistributed, LSTM 
-from tensorflow.keras.layers import Input, Activation, AveragePooling2D, Lambda, concatenate, Flatten, BatchNormalization, RepeatVector, Permute, Lambda, Dropout
+from tensorflow.keras.layers import Input, Activation, AveragePooling2D, Lambda, concatenate, Flatten, BatchNormalization, RepeatVector, Permute, Lambda, Dropout, Average
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.callbacks import Callback
@@ -27,7 +27,7 @@ import seaborn as sns
 import random
 
 ###########################################_____LOAD_PROCESSED_DATA_____############################################
-model_type ="wind"
+model_type ="solar"
 
 if model_type == 'wind':
 	dataset_name = 'train_set_V100.hdf5'
@@ -70,7 +70,7 @@ print(y_len)
 
 ###########################################_____DATA_GENERATOR_____#################################################
 
-params = {'batch_size': 16,
+params = {'batch_size': 8,
 		'shuffle': False } 
 
 class DataGenerator(tensorflow.keras.utils.Sequence):
@@ -190,7 +190,7 @@ Ty = output_seq_size
 height, width, channels = features.shape[0], features.shape[1], features.shape[2]
 times_in_dim = times_in.shape[-1]
 times_out_dim = times_out.shape[-1]
-n_s = 128
+n_s = 32
 
 
 #one-step temporal Atttention
@@ -227,8 +227,8 @@ class attention(tf.keras.layers.Layer):
 
 		context = attn_w * enc_output
 		context = tf.reduce_sum(context, axis=1)
-		# context = K.expand_dims(context, axis=1)
-		context = RepeatVector(Ty)(context)
+		context = K.expand_dims(context, axis=1)
+		# context = RepeatVector(Ty)(context)
 
 		return [attn_w, context]
 
@@ -307,12 +307,14 @@ def cnn_encoder(ccn_input):
 	ccn_enc_output = Reshape((ccn_enc_output.shape[1], -1, ccn_enc_output.shape[-1]))(ccn_enc_output) 
 
 	ccn_enc_output = K.mean(ccn_enc_output, axis=1) 
+
+	print(ccn_enc_output.shape)
     
 	return ccn_enc_output
 
 # encoder layers
-lstm_encoder = Bidirectional(LSTM(n_s, return_sequences = True, return_state = True))
-
+# lstm_encoder = Bidirectional(LSTM(n_s, return_sequences = True, return_state = True))
+lstm_encoder = LSTM(n_s, return_sequences = True, return_state = True)
 
 def encoder(input, times_in):
 
@@ -321,14 +323,15 @@ def encoder(input, times_in):
 	# concat input time features with input
 	enc_output = concatenate([enc_output, times_in], axis=-1)
 
-	enc_output, forward_h, forward_c, backward_h, backward_c = lstm_encoder(enc_output)
+	# enc_output, forward_h, forward_c, backward_h, backward_c = lstm_encoder(enc_output)
+	enc_output, enc_h, enc_s = lstm_encoder(enc_output)
 
-	enc_h = concatenate([forward_h, backward_h], axis=-1)
-	enc_s = concatenate([forward_c, backward_c], axis=-1)
+	# enc_h = Average()([forward_h, backward_h])
+	# enc_s = Average()([forward_c, backward_c])
 
 	return enc_output, enc_h, enc_s
 
-lstm_decoder = LSTM(n_s * 2, return_sequences = True, return_state = True)
+lstm_decoder = LSTM(n_s, return_sequences = True, return_state = True)
 
 def decoder(context, h_state, cell_state):
 
@@ -436,43 +439,60 @@ c_state = enc_c_state
 # decoder_input = Dropout(0.2)(decoder_input)
 # decoder_input = concatenate([decoder_input, times_out_single], axis=-1)
 
-all_predictions = {}
-combined_predictions = []
+
+qunatile_predictions = []
+
+temporal_attns = [] 
+spatial_attns = [] 
 
 # call decoder
 for q in quantiles: 
+	ts_predictions = []
 
-	# get context matrix (temporal)
-	attn_weights_temp, context_temp = attention(n_s, name=f"temporal_attention_q_{q}")(lstm_enc_output, s_state, c_state)
+	for ts in range(Ty):
 
-	# get context matrix (spatial)
-	attn_weights_spat, context_spat = attention(n_s, name=f"spatial_attention_q_{q}")(ccn_enc_output, s_state, c_state)
+		# get context matrix (temporal)
+		attn_weights_temp, context_temp = attention(n_s, name=f"temporal_attention_q_{q}_{ts}")(lstm_enc_output, s_state, c_state)
 
-	# combine spatial and temporal context
-	context = concatenate([context_temp, context_spat], axis=-1) 
+		# get context matrix (spatial)
+		attn_weights_spat, context_spat = attention(n_s, name=f"spatial_attention_q_{q}_{ts}")(ccn_enc_output, s_state, c_state)
 
-	# print(context.shape)
+		# combine spatial and temporal context
+		context = concatenate([context_temp, context_spat], axis=-1) 
 
-	decoder_input = concatenate([context, times_out], axis=-1) 
-	decoder_input = concatenate([decoder_input, out_nwp], axis=-1)  
+		# print(context.shape)
+
+		decoder_input = concatenate([out_nwp[:, ts:ts+1, :], times_out[:, ts:ts+1 ,:]], axis=-1) 
+     
+		# decoder_input = concatenate([out_nwp[:, ts:ts+1, :], times_out[:, ts:ts+1 ,:]], axis=-1)  
 
 
-	# dec_output, s_state, c_state = decoder(decoder_input, s_state, c_state)
-	dec_output, _ , _ = state = LSTM(n_s*2, return_sequences = True, return_state = True, name=f'decoder_q_{q}')(decoder_input, initial_state = [s_state, c_state])
+		# dec_output, s_state, c_state = decoder(decoder_input, s_state, c_state)
+		dec_output, s_state, c_state = state = LSTM(n_s, return_sequences = True, return_state = True, name=f'decoder_q_{q}_{ts}')(decoder_input, initial_state = [s_state, c_state])
+		# dec_output, _ , _ = state = LSTM(n_s, return_sequences = True, return_state = True, name=f'decoder_q_{q}')(decoder_input)
 
 # get final predicted value
 # output = predict_1(dec_output)	
 # output = predict_2(output)
 # predictions = predict_3(output)
 
-	predict_1 = TimeDistributed(Dense(64, activation="relu", name=f'conv1_q_{q}'))(dec_output)
-	# predict_2 = Conv1D(16, kernel_size=1, strides=1, padding="same", activation="swish", name=f'conv2_q_{q}')(predict_1)
-	all_predictions[f'predict_{q}'] = TimeDistributed(Dense(1, activation="linear", name=f'dense_q_{q}'))(predict_1)
-	combined_predictions.append(all_predictions[f'predict_{q}'])
+		# print(dec_output.shape)
+
+		# print(context.shape)
+
+		# predict_1 = Dense(16, activation="relu", name=f'conv1_q_{q}')(dec_output)
+		# predict_2 = Conv1D(16, kernel_size=1, strides=1, padding="same", activation="swish", name=f'conv2_q_{q}')(predict_1)
+		prediction = concatenate([dec_output, context], axis=-1) 
+		prediction = Conv1D(32, kernel_size=1, strides=1, padding="same", activation="relu", name=f'dense1_q_{q}_{ts}')(dec_output)
+		prediction = Conv1D(1, kernel_size=1, strides=1, padding="same", activation="linear", name=f'dense2_q_{q}_{ts}')(prediction)
+		ts_predictions.append(prediction)
+    
+	ts_predictions_total = concatenate(ts_predictions, axis = 1)
+	qunatile_predictions.append(ts_predictions_total)
 
 # combined_predictions  = concatenate(combined_predictions, axis=-1)  
 
-combined_predictions.extend([attn_weights_temp, attn_weights_spat])
+qunatile_predictions.extend([attn_weights_temp, attn_weights_spat])
 
 # predictions = K.expand_dims(predictions , axis=-1)
 
@@ -523,7 +543,7 @@ combined_predictions.extend([attn_weights_temp, attn_weights_spat])
 # attention_temporal = Lambda(lambda x: concatenate(x, axis=1))(all_temp_attn_weights)
 # attention_spatial = Lambda(lambda x: concatenate(x, axis=1))(all_spat_attn_weights)
 
-model = Model(inputs = [x_input, times_in, times_out, out_nwp, s_state0, c_state0], outputs = combined_predictions)
+model = Model(inputs = [x_input, times_in, times_out, out_nwp, s_state0, c_state0], outputs = qunatile_predictions)
 
 
 # define the pinball loss function to optimise
@@ -655,7 +675,7 @@ model.compile(loss = q_losses , optimizer= optimizer, metrics = ['mae'])
 # model.compile(loss = [lambda y,f: defined_loss(q,y,f), None, None], optimizer= optimizer, metrics = ['mae'])
 print(model.summary())
 
-train = model.fit(training_generator, workers=4, epochs = 5)
+train = model.fit(training_generator, workers=1, epochs = 5)
 
 os.mkdir(f'/content/drive/My Drive/{model_type}Models/q_{q}')
 # model_freeze.save_weights('/content/drive/My Drive/solarGeneration_forecast_weights_freezed' + '_Q_%s' %(q) + '.h5')
