@@ -445,29 +445,41 @@ qunatile_predictions = []
 temporal_attns = [] 
 spatial_attns = [] 
 
+# prediction = lstm_enc_output[:,-1:,:]
+
 # call decoder
 for q in quantiles: 
 	ts_predictions = []
+
+	# prediction = lstm_enc_output[:,-1:,:]
+	# decoder = LSTM(n_s, return_sequences = True, return_state = True, name=f'decoder_q_{q}')
+	# spatial_attention = attention(n_s, name=f"spatial_attention_q_{q}")
+	# temporal_attention = attention(n_s, name=f"temporal_attention_q_{q}")
 
 	for ts in range(Ty):
 
 		# get context matrix (temporal)
 		attn_weights_temp, context_temp = attention(n_s, name=f"temporal_attention_q_{q}_{ts}")(lstm_enc_output, s_state, c_state)
+		# attn_weights_temp, context_temp = temporal_attention(lstm_enc_output, s_state, c_state)
 
 		# get context matrix (spatial)
 		attn_weights_spat, context_spat = attention(n_s, name=f"spatial_attention_q_{q}_{ts}")(ccn_enc_output, s_state, c_state)
+		# attn_weights_spat, context_spat = spatial_attention(ccn_enc_output, s_state, c_state)
 
 		# combine spatial and temporal context
 		context = concatenate([context_temp, context_spat], axis=-1) 
 
 		# print(context.shape)
 
-		decoder_input = concatenate([out_nwp[:, ts:ts+1, :], times_out[:, ts:ts+1 ,:]], axis=-1) 
-     
-		# decoder_input = concatenate([out_nwp[:, ts:ts+1, :], times_out[:, ts:ts+1 ,:]], axis=-1)  
+		# decoder_input = concatenate([out_nwp[:, ts:ts+1, :], times_out[:, ts:ts+1 ,:]], axis=-1)
+		decoder_input = concatenate([times_out[:, ts:ts+1 ,:], out_nwp[:, ts:ts+1, :]], axis=-1) 
+		decoder_input = concatenate([context, decoder_input], axis=-1)
+
+		if ts > 0:
+			decoder_input = concatenate([decoder_input, prev_prediction], axis=-1)  
 
 
-		# dec_output, s_state, c_state = decoder(decoder_input, s_state, c_state)
+		# dec_output, s_state, c_state = decoder(decoder_input, initial_state = [s_state, c_state])
 		dec_output, s_state, c_state = state = LSTM(n_s, return_sequences = True, return_state = True, name=f'decoder_q_{q}_{ts}')(decoder_input, initial_state = [s_state, c_state])
 		# dec_output, _ , _ = state = LSTM(n_s, return_sequences = True, return_state = True, name=f'decoder_q_{q}')(decoder_input)
 
@@ -482,10 +494,13 @@ for q in quantiles:
 
 		# predict_1 = Dense(16, activation="relu", name=f'conv1_q_{q}')(dec_output)
 		# predict_2 = Conv1D(16, kernel_size=1, strides=1, padding="same", activation="swish", name=f'conv2_q_{q}')(predict_1)
-		prediction = concatenate([dec_output, context], axis=-1) 
-		prediction = Conv1D(32, kernel_size=1, strides=1, padding="same", activation="relu", name=f'dense1_q_{q}_{ts}')(dec_output)
-		prediction = Conv1D(1, kernel_size=1, strides=1, padding="same", activation="linear", name=f'dense2_q_{q}_{ts}')(prediction)
-		ts_predictions.append(prediction)
+		# prediction = concatenate([dec_output, context], axis=-1)
+		prediction = Dense(64, activation="relu", name=f'dense1_q_{q}_{ts}')(dec_output) 
+		prediction = Dense(16, activation="relu", name=f'dense2_q_{q}_{ts}')(prediction)
+		output = Dense(1, activation="linear", name=f'dense3_q_{q}_{ts}')(prediction)
+		prev_prediction = output
+		ts_predictions.append(output)
+
     
 	ts_predictions_total = concatenate(ts_predictions, axis = 1)
 	qunatile_predictions.append(ts_predictions_total)
@@ -566,12 +581,12 @@ optimizer = tensorflow.keras.optimizers.Adam(learning_rate = 0.001)
 # lstm_idx = [x for x in range(1,49)]
 # checking final architecture
 # from IPython.display import SVG
-from keras.utils.vis_utils import model_to_dot
+# from keras.utils.vis_utils import model_to_dot
 
 
-model_to_dot(model).create(prog='dot', format='svg')
-plt.show()
-tf.keras.utils.plot_model(model, to_file='dot_img_file.png', show_shapes=True)
+# model_to_dot(model).create(prog='dot', format='svg')
+# plt.show()
+# tf.keras.utils.plot_model(model, to_file='dot_img_file.png', show_shapes=True)
 # sys.exit()
 
 
@@ -654,9 +669,9 @@ def loss_func(q):
 
 func_test = lambda y,f: defined_loss(q,y,f) 
 
-a = lambda y,f: defined_loss(0.1,y,f) 
+a = lambda y,f: defined_loss(0.05,y,f) 
 b = lambda y,f: defined_loss(0.5,y,f) 
-c = lambda y,f: defined_loss(0.9,y,f)
+c = lambda y,f: defined_loss(0.95,y,f)
 
 
 q_losses = [a, b, c]
@@ -675,7 +690,7 @@ model.compile(loss = q_losses , optimizer= optimizer, metrics = ['mae'])
 # model.compile(loss = [lambda y,f: defined_loss(q,y,f), None, None], optimizer= optimizer, metrics = ['mae'])
 print(model.summary())
 
-train = model.fit(training_generator, workers=1, epochs = 5)
+train = model.fit(training_generator, workers=1, epochs = 10)
 
 os.mkdir(f'/content/drive/My Drive/{model_type}Models/q_{q}')
 # model_freeze.save_weights('/content/drive/My Drive/solarGeneration_forecast_weights_freezed' + '_Q_%s' %(q) + '.h5')
