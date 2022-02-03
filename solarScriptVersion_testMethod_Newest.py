@@ -400,8 +400,8 @@ ccn_enc_output = cnn_encoder(x_input)
 # call LSTM_encoder function
 lstm_enc_output, enc_s_state, enc_c_state = encoder(x_input, times_in)
 
-s_state = enc_s_state
-c_state = enc_c_state
+s_state_enc = enc_s_state
+c_state_enc = enc_c_state
 
 # y_prev = K.mean(x_input, axis=(2,3))
 # y_prev = y_prev[:, -49, 0:1]
@@ -471,16 +471,16 @@ for q in quantiles:
 
 		# print(context.shape)
 
-		# decoder_input = concatenate([out_nwp[:, ts:ts+1, :], times_out[:, ts:ts+1 ,:]], axis=-1)
-		decoder_input = concatenate([times_out[:, ts:ts+1 ,:], out_nwp[:, ts:ts+1, :]], axis=-1) 
+		decoder_input = concatenate([out_nwp[:, ts:ts+1, :], times_out[:, ts:ts+1 ,:]], axis=-1)
+		# decoder_input = concatenate([times_out[:, ts:ts+1 ,:], out_nwp[:, ts:ts+1, :]], axis=-1) 
 		decoder_input = concatenate([context, decoder_input], axis=-1)
 
 		if ts > 0:
-			decoder_input = concatenate([decoder_input, prev_prediction], axis=-1)  
+			decoder_input = concatenate([decoder_input, K.expand_dims(prev_prediction, axis=-1)], axis=-1)  
 
 
 		# dec_output, s_state, c_state = decoder(decoder_input, initial_state = [s_state, c_state])
-		dec_output, s_state, c_state = state = LSTM(n_s, return_sequences = True, return_state = True, name=f'decoder_q_{q}_{ts}')(decoder_input, initial_state = [s_state, c_state])
+		dec_output, s_state, c_state = state = LSTM(32, return_sequences = False, return_state = True, name=f'decoder_q_{q}_{ts}')(decoder_input, initial_state = [s_state, c_state])
 		# dec_output, _ , _ = state = LSTM(n_s, return_sequences = True, return_state = True, name=f'decoder_q_{q}')(decoder_input)
 
 # get final predicted value
@@ -494,15 +494,18 @@ for q in quantiles:
 
 		# predict_1 = Dense(16, activation="relu", name=f'conv1_q_{q}')(dec_output)
 		# predict_2 = Conv1D(16, kernel_size=1, strides=1, padding="same", activation="swish", name=f'conv2_q_{q}')(predict_1)
-		# prediction = concatenate([dec_output, context], axis=-1)
-		prediction = Dense(64, activation="relu", name=f'dense1_q_{q}_{ts}')(dec_output) 
-		prediction = Dense(16, activation="relu", name=f'dense2_q_{q}_{ts}')(prediction)
-		output = Dense(1, activation="linear", name=f'dense3_q_{q}_{ts}')(prediction)
+		# prediction = concatenate([K.expand_dims(dec_output, axis=1), context], axis=-1)
+		# prediction = Dense(64, activation="relu", name=f'dense1_q_{q}_{ts}')(dec_output) 
+		# prediction = Dense(64, activation="relu", name=f'dense2_q_{q}_{ts}')(prediction)
+		output = Dense(64, activation="tanh", name=f'dense1_q_{q}_{ts}')(dec_output)
+		output = Dense(32, activation="linear", name=f'dense2_q_{q}_{ts}')(output)
+		output = Dense(1, activation="tanh", name=f'dense3_q_{q}_{ts}')(output)
 		prev_prediction = output
 		ts_predictions.append(output)
 
     
 	ts_predictions_total = concatenate(ts_predictions, axis = 1)
+	ts_predictions_total = K.expand_dims(ts_predictions_total, axis=-1)
 	qunatile_predictions.append(ts_predictions_total)
 
 # combined_predictions  = concatenate(combined_predictions, axis=-1)  
@@ -690,7 +693,7 @@ model.compile(loss = q_losses , optimizer= optimizer, metrics = ['mae'])
 # model.compile(loss = [lambda y,f: defined_loss(q,y,f), None, None], optimizer= optimizer, metrics = ['mae'])
 print(model.summary())
 
-train = model.fit(training_generator, workers=1, epochs = 10)
+train = model.fit(training_generator, workers=1, epochs = 2)
 
 os.mkdir(f'/content/drive/My Drive/{model_type}Models/q_{q}')
 # model_freeze.save_weights('/content/drive/My Drive/solarGeneration_forecast_weights_freezed' + '_Q_%s' %(q) + '.h5')
