@@ -1,19 +1,29 @@
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var x_input,y_input,
-    svg_input_Xaxis,
-    svg_input_Yaxis,
-    values,
-    data,
-    data_output;
+// var x_input,y_input,
+//     svg_input_Xaxis,
+//     svg_input_Yaxis,
+//     values,
+//     data,
+//     data_output,
+//     svg_heatmap,
+//     legend,
+//     svg_input,
+//     svg_output,
+//     height,
+//     width,
+//     margin
 
-var parseDate = d3.timeParse("%d/%m/%Y %H:%M");
+// var parseDate = d3.timeParse("%d/%m/%Y %H:%M");
 
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
 width = parseInt(d3.select('#content_graphs').style('width'), 10) 
+
+function context_graph(context_data, output_data, name) {
 
 // function instaniate_charts() {
   // set the dimensions and margins of the graph
@@ -23,7 +33,7 @@ width = parseInt(d3.select('#content_graphs').style('width'), 10)
 
 
   // append the svg object to the body of the page
-  var svg_heatmap = d3.select("#my_dataviz2")
+  var svg_heatmap = d3.select("#my_dataviz" + name + "2")
   .append("svg")
     .attr("width", width)
     .attr("height", height)
@@ -43,7 +53,7 @@ width = parseInt(d3.select('#content_graphs').style('width'), 10)
 
 
   // input line graph
-  var svg_input = d3.select("#my_dataviz3")
+  var svg_input = d3.select("#my_dataviz" + name + "3")
   .append("svg")
     .attr("width", width)
     .attr("height", height - 190)   
@@ -53,9 +63,9 @@ width = parseInt(d3.select('#content_graphs').style('width'), 10)
 
 
     // Add output line graph
-    var svg_output = d3.select("#my_dataviz4")
+    var svg_output = d3.select("#my_dataviz" + name + "4")
     .append("svg")
-      .attr("class", 'output_svg_back')
+      .attr("class", 'output_svg_back' + name)
       .attr("width", width)
       .attr("height", height)
     .append("g")
@@ -74,9 +84,13 @@ width = parseInt(d3.select('#content_graphs').style('width'), 10)
 
 
 
-
-
-function context_graph(context_data, output_data) {
+  // Add chart title
+  svg_input.append("text")
+          .attr("x", (width /2)-margin.right)             
+          .attr("y", 10)
+          .style("font-size", "16px") 
+          .style("text-decoration", "underline")  
+          .text(name);
 
 
   // update current width of graphs
@@ -98,18 +112,18 @@ function context_graph(context_data, output_data) {
 
 // INPUT LINE SETUP ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-x_input = d3.scaleLinear()
+var x_input = d3.scaleLinear()
   .range([0, main_graph_width])
   // .domain([0, 100])
 
-y_input = d3.scaleLinear()
+var y_input = d3.scaleLinear()
   // .domain([0, 0.5])
   .range([ height/4, 0 ]);
 
-xAxis = d3.axisBottom().scale(x_input).tickSizeOuter(0).tickValues([]);
-yAxis = d3.axisLeft().scale(y_input).tickSizeOuter(0).tickValues([]);
+var xAxis = d3.axisBottom().scale(x_input).tickSizeOuter(0).tickValues([]);
+var yAxis = d3.axisLeft().scale(y_input).tickSizeOuter(0).tickValues([]);
 
-input_line = d3.line()
+var input_line = d3.line()
                 .curve(d3.curveBasis)
                 .x(function(d) { return x_input(d.input_time_ref) })
                 .y(function(d) { return y_input(d.input_solar) })
@@ -240,20 +254,20 @@ d3.csv(context_data,
 
     x_heat.domain(d3.map(data, function(d){return d.group;}).keys())
 
-    svg_heat_Xaxis = svg_heatmap.append("g")
-      .attr("class", "x axis")
+    var svg_heat_Xaxis = svg_heatmap.append("g")
+      .attr("class", "x axis" + name)
       .attr("transform", "translate(0," + height + ")")
       .call(xAxis_heat)
       .select(".domain").remove()
 
     y_heat.domain(d3.map(data, function(d){return d.variable;}).keys())
     svg_heat_Yaxis = svg_heatmap.append("g")
-      .attr("class", "y axis")
+      .attr("class", "y axis" + name)
       .call(yAxis_heat)
 
 
 
-heatmap = svg_heatmap.selectAll()
+var heatmap = svg_heatmap.selectAll()
     .data(data, function(d) {return d.group+':'+d.variable;})
     .enter()
     .append("rect")
@@ -280,14 +294,14 @@ heatmap = svg_heatmap.selectAll()
 
     x_dates.domain(d3.extent(data, function(d){return d.group;}))
 
-    svg_heat_Xdates = svg_heatmap.append("g")
-      .attr("class", "x axis_dates")
+    var svg_heat_Xdates = svg_heatmap.append("g")
+      .attr("class", "x axis_dates" + name)
       .attr("transform", "translate(0," + height + ")")
       .call(xAxis_dates)
 
     y_dates.domain(d3.extent(data, function(d){return d.variable;}))
     
-    svg_heat_Ydates = svg_heatmap.append("g")
+    var svg_heat_Ydates = svg_heatmap.append("g")
       .style("text-transform", "uppercase")
       .style("font-size", "10px")
       .call(yAxis_dates)
@@ -295,13 +309,13 @@ heatmap = svg_heatmap.selectAll()
       .attr("transform", "translate(-20, -20) rotate(-90)")
 
 
-    svg_heat_Ydates_min = svg_heatmap.append("g")
+    var svg_heat_Ydates_min = svg_heatmap.append("g")
       .call(yAxis_minor_ticks)
       .select(".domain").remove();
 
 
-    svg_heat_noon_ticks = svg_heatmap.append("g")
-      .attr("class", "x axis_dates_noon")
+    var svg_heat_noon_ticks = svg_heatmap.append("g")
+      .attr("class", "x axis_dates_noon" + name)
       .attr("transform", "translate(0," + height + ")")
       .call(xAxis_noon_ticks)
       .style("text-transform", "uppercase")
@@ -309,15 +323,15 @@ heatmap = svg_heatmap.selectAll()
       .select(".domain").remove();
 
 
-    svg_heat_min_ticks = svg_heatmap.append("g")
-      .attr("class", "x axis_date_min")
+    var svg_heat_min_ticks = svg_heatmap.append("g")
+      .attr("class", "x axis_date_min" + name)
       .attr("transform", "translate(0," + height + ")")
       .call(xAxis_minor_ticks)
       // .select(".domain").remove();
 
 
     // tick value on every second value
-    var ticks = d3.select('#my_dataviz2').selectAll(".tick text");
+    var ticks = d3.select("#my_dataviz" + name + "2").selectAll(".tick text");
     ticks.each(function(_,i){
         if(i%2 == 0) d3.select(this).remove();
     });
@@ -329,22 +343,22 @@ heatmap = svg_heatmap.selectAll()
     x_input.domain([0, d3.max(data, function(d) { return +d.input_time_ref; })])
     y_input.domain([0, d3.max(data, function(d) { return +d.input_solar; })])
 
-    svg_input_Xaxis = svg_input.append("g")
-      .attr("class", "x axis")
+    var svg_input_Xaxis = svg_input.append("g")
+      .attr("class", "x axis" + name)
       .attr("transform", "translate(0," + height/4 + ")")
       .call(xAxis);
 
       // .select(".domain").remove();
 
-    svg_input_Yaxis = svg_input.append("g")
-      .attr("class", "y axis")
+    var svg_input_Yaxis = svg_input.append("g")
+      .attr("class", "y axis" + name)
       .call(yAxis)
       .select(".domain").remove();
 
     // Add the line path.
-    path = svg_input.append("path")
+    var path = svg_input.append("path")
       .datum(values)
-      .attr("class", "line")
+      .attr("class", "line" + name)
       .attr("fill", "steelblue")
       .attr("fill-opacity", 0.2)
       .attr("stroke", "steelblue")
@@ -389,26 +403,29 @@ heatmap = svg_heatmap.selectAll()
     x_output.domain([0, d3.max(data_out, function(d2) { return +d2.prediction; })])
     y_output.domain([0, d3.max(data_out, function(d2) { return +d2.output_time; })])
 
-    svg_output_Xaxis = svg_output.append("g")
-      .attr("class", "x axis_out")
+    var svg_output_Xaxis = svg_output.append("g")
+      .attr("class", "x axis_out" + name)
       .attr("transform", "translate(" + 0 + "," + height + ")")
       .call(xAxis_out)
       .select(".domain").remove();
 
-    svg_output_Yaxis = svg_output.append("g")
-      .attr("class", "y axis_out")
+    var svg_output_Yaxis = svg_output.append("g")
+      .attr("class", "y axis_out" + name)
       .call(yAxis_out)
       // .select(".domain").remove();
 
     // Add the line path.
-    path_out = svg_output.append("path")
+    var path_out = svg_output.append("path")
       .datum(data_out)
-      .attr("class", "line_output")
+      .attr("class", "line_output" + name)
       .attr("fill", "steelblue")
       .attr("fill-opacity", 0.2)
       .attr("stroke", "steelblue")
       .attr("stroke-width", 1)
       .attr("d", output_line(data_out));
+
+
+
 
 
 
@@ -455,32 +472,32 @@ defs.append("linearGradient")
 
      var mouseG = svg_input
         .append("g")
-        .attr("class", "mouse-over-effects");
+        .attr("class", "mouse-over-effects" + name);
 
      var mouseG2 = svg_output
         .append("g")
-        .attr("class", "mouse-over-effects2");
+        .attr("class", "mouse-over-effects2" + name);
 
       mouseG
         .append("path") // this is the black vertical line to follow mouse
-        .attr("class", "mouse-line")
+        .attr("class", "mouse-line" + name)
         .style("stroke", "#393B45") //6E7889
         .style("stroke-width", "0.5px")
         .style("opacity", 0.75)
 
       mouseG2
         .append("path") // this is the black vertical line to follow mouse
-        .attr("class", "mouse-line2")
+        .attr("class", "mouse-line2" + name)
         .style("stroke", "#393B45") //6E7889
         .style("stroke-width", "0.5px")
         .style("opacity", 0.75)
 
       mouseG.append("text")
-        .attr("class", "mouse-text")
+        .attr("class", "mouse-text" + name)
         .attr('font-size', "8px")
 
       mouseG2.append("text")
-        .attr("class", "mouse-text2")
+        .attr("class", "mouse-text2" + name)
 
 
       // var lines = document.getElementsByClassName('line');
@@ -490,17 +507,17 @@ defs.append("linearGradient")
       var totalLength = 1000
       var totalLength2 = path_out.node().getTotalLength();
 
-      var mousePerLine = mouseG.selectAll('.mouse-per-line')
+      var mousePerLine = mouseG.selectAll('.mouse-per-line' + name)
         .data(data)
         .enter()
         .append("g")
-        .attr("class", "mouse-per-line");
+        .attr("class", "mouse-per-line" + name);
 
-      var mousePerLine2 = mouseG2.selectAll('.mouse-per-line2')
+      var mousePerLine2 = mouseG2.selectAll('.mouse-per-line2' + name)
         .data(data_out)
         .enter()
         .append("g")
-        .attr("class", "mouse-per-line2");
+        .attr("class", "mouse-per-line2" + name);
 
 
 
@@ -531,20 +548,20 @@ defs.append("linearGradient")
         .attr('fill', 'none')
         .attr('pointer-events', 'all')
         .on('mouseout', function() { // on mouse out hide line, circles and text
-          d3.select("#my_dataviz3")
-            .select(".mouse-line")
+          d3.select("#my_dataviz" + name + "3")
+            .select(".mouse-line" + name)
             .style("opacity", "0")
-          d3.select("#my_dataviz4")
-            .select(".mouse-line2")
+          d3.select("#my_dataviz" + name + "4")
+            .select(".mouse-line2" + name)
             .style("opacity", "0");
-          d3.select("#my_dataviz3")
-            .select(".mouse-text")
+          d3.select("#my_dataviz" + name + "3")
+            .select(".mouse-text" + name)
             .style("opacity", "0");
-          d3.select("#my_dataviz4")
-            .select(".mouse-text2")
+          d3.select("#my_dataviz" + name + "4")
+            .select(".mouse-text2" + name)
             .style("opacity", "0");
-          d3.select("#my_dataviz3")
-            .selectAll(".mouse-per-line circle")
+          d3.select("#my_dataviz" + name + "3")
+            .selectAll(".mouse-per-line" + name + "circle")
             .style("opacity", "0");
         })
 
@@ -555,8 +572,8 @@ defs.append("linearGradient")
           .attr('fill', 'none')
           .attr('pointer-events', 'all')
         .on('mouseout', function() {
-          d3.select("#my_dataviz4")
-            .selectAll(".mouse-per-line2 circle")
+          d3.select("#my_dataviz" + name + "4")
+            .selectAll(".mouse-per-line2" + name + "circle")
             .style("opacity", "0"); })
 
         const point = svg_output.append('circle')
@@ -572,7 +589,7 @@ defs.append("linearGradient")
           .style("opacity", "0");
 
         // make tooltip fo hovering over
-        var tooltip = d3.select("#my_dataviz2")
+        var tooltip = d3.select("#my_dataviz" + name + "2")
                         .append("div")
                         .style("opacity", 0)
                         .attr("class", "tooltip")
@@ -591,27 +608,27 @@ defs.append("linearGradient")
             .style("fill-opacity", 0.3)
             // .style("stroke", "black")
             // .style("stroke-width", 1)
-        d3.select("#my_dataviz3")
-            .select(".mouse-line")
+        d3.select("#my_dataviz" + name + "3")
+            .select(".mouse-line" + name)
             .style("opacity", "1")
-            .select(".mouse-text")
+            .select(".mouse-text" + name)
             .style("opacity", "1")
-            .select(".mouse-per-line circle")
+            .select(".mouse-per-line" + name + "circle")
             .style("opacity", "1");
-        d3.select("#my_dataviz4")
-            .select(".mouse-line2")
+        d3.select("#my_dataviz" + name + "4")
+            .select(".mouse-line2" + name)
             .style("opacity", "1")
-            .select(".mouse-text2")
+            .select(".mouse-text2" + name)
             .style("opacity", "1")
-            .select(".mouse-per-line2 circle")
+            .select(".mouse-per-line2" + name + "circle")
             .style("opacity", "1")
         tooltip
             .style("opacity",0.75);
 
 
           var mouse = d3.mouse(this);
-          d3.select("#my_dataviz3")
-            .select(".mouse-text")
+          d3.select("#my_dataviz" + name + "3")
+            .select(".mouse-text" + name)
             .attr("x", mouse[0])
             .attr("transform", "translate(5," + ((height / 4) - 2) + ")")
 
@@ -716,11 +733,11 @@ defs.append("linearGradient")
 
 
           /////////////////////////////////////////////////// 
-          d3.select("#my_dataviz4")
+          d3.select("#my_dataviz" + name + "4")
           var mouse2 = d3.mouse(this);
 
-           d3.select("#my_dataviz4")
-            .select(".mouse-text2")
+           d3.select("#my_dataviz" + name + "4")
+            .select(".mouse-text2" + name)
             .attr("y", mouse2[1])
             .attr("transform", "translate(" + (mouse2[1]+5) + "," + (mouse2[1]+2) + ") rotate(90)")
 
@@ -800,8 +817,8 @@ defs.append("linearGradient")
                   .attr('cy', yPos)
                   .style("opacity", "1");
 
-                d3.select("#my_dataviz3")
-                  .select(".mouse-line")
+                d3.select("#my_dataviz" + name + "3")
+                  .select(".mouse-line" + name)
                   .attr("d", function() {
                       var d = "M" + x + "," + height/4;
                       d += " " + x + "," + 0;
@@ -811,7 +828,7 @@ defs.append("linearGradient")
                 var xDate = x_dates.invert(x)
                 time = d3.timeFormat("%H:%M %p")(xDate)
 
-                d3.select("#my_dataviz3").select('.mouse-text')
+                d3.select("#my_dataviz" + name + "3").select('.mouse-text' + name)
                   .text(time)
                   .style("opacity", 0.5)
                   .style("text-transform", "uppercase")
@@ -839,8 +856,8 @@ defs.append("linearGradient")
                   .attr('cy', y)
                   .style("opacity", "1");
 
-                d3.select("#my_dataviz4")
-                  .select(".mouse-line2")
+                d3.select("#my_dataviz" + name + "4")
+                  .select(".mouse-line2" + name)
                   .attr("d", function() {
                     var d = "M" + output_graph_width + "," + y;
                     d += " " + 0 + "," + y;
@@ -850,14 +867,14 @@ defs.append("linearGradient")
                 var xDate2 = y_dates.invert(y)
                 time2 = d3.timeFormat("%H:%M %p")(xDate2)
 
-                d3.select("#my_dataviz4").select('.mouse-text2')
+                d3.select("#my_dataviz" + name + "4").select('.mouse-text2' + name)
                   .text(time2)
                   .style("opacity", 0.5)
                   .style("text-transform", "uppercase")
                   .style("font", "13px arial")
 
-                // d3.select('#tooltip').html(curP)
-                tooltip
+                d3.select("#my_dataviz" + name + "2").select('.tooltip')
+                // tooltip
                   .html("<strong>Context:&nbsp</strong>" + d.value.toFixed(4) + "<br><strong>Input:&nbsp</strong>" + curPx.toFixed(4) + "MW<br><strong>Output:&nbsp</strong>" + curP.toFixed(4)  + "MW")
                   .style("left", (d3.mouse(this)[0]+70) + "px")
                   .style("top", (d3.mouse(this)[1]) + "px")
@@ -878,17 +895,17 @@ defs.append("linearGradient")
            .transition()
            .duration(750)
            .style("fill-opacity", 1);
-        d3.select("#my_dataviz3")
-          .select(".mouse-line")
+        d3.select("#my_dataviz" + name + "3")
+          .select(".mouse-line" + name)
           .style("opacity", "0")
-        d3.select("#my_dataviz3")
-          .select('.mouse-text')
+        d3.select("#my_dataviz" + name + "3")
+          .select('.mouse-text' + name)
           .style("opacity", "0")
-        d3.select("#my_dataviz4")
-          .select(".mouse-line2")
+        d3.select("#my_dataviz" + name + "4")
+          .select(".mouse-line2" + name)
           .style("opacity", "0") 
-        d3.select("#my_dataviz4")
-          .select('.mouse-text2')
+        d3.select("#my_dataviz" + name + "4")
+          .select('.mouse-text2' + name)
           .style("opacity", "0")          
         point.style("opacity", "0")
         point_input.style("opacity", "0")
@@ -978,7 +995,7 @@ defs.append("linearGradient")
       // manually append min and max to legend
       legend
         .append("text")
-        .attr("class", "legend_max_txt")
+        .attr("class", "legend_max_txt" + name)
         .attr("x", (main_graph_width - legend_start - 20))
         .attr("y", 18)
         .attr("font-family", "arial")
@@ -988,7 +1005,7 @@ defs.append("linearGradient")
 
       legend
         .append("text")
-        .attr("class", "legend_min_txt")
+        .attr("class", "legend_min_txt" + name)
         .attr("x", legend_start - 10)
         .attr("y", 18)
         .attr("font-family", "arial")
@@ -998,7 +1015,7 @@ defs.append("linearGradient")
 
       legend
         .append("text")
-        .attr("class", "legend_mid_txt")
+        .attr("class", "legend_mid_txt" + name)
         .attr("x",(main_graph_width/2)-10)
         .attr("y", 18)
         .attr("font-family", "arial")
@@ -1006,17 +1023,11 @@ defs.append("linearGradient")
         // .style("text-anchor", "end ")
         .text(d3.format(".4f")((min+max)/2));
 
-
-
-
-
-      d3.select(window).on('resize', resize);
+      // d3.select(window).on('resize', resize);
 
 
   })
     })
-
-
 
   d3.select(window).on('resize',resize);
   return width
@@ -1025,6 +1036,8 @@ defs.append("linearGradient")
 
 
  var resize = function(e) {
+
+      // console.log(name)
 
       // update svg input chart /////////////////////////////////////////////////////////
       width = parseInt(d3.select('#content_graphs').style('width'), 10)
@@ -1036,8 +1049,7 @@ defs.append("linearGradient")
       output_graph_width = dimensions[2]
 
 
-
-      d3.select("#my_dataviz3").select("svg").attr("width", width)
+      d3.select("#my_dataviz" + name + "3").select("svg").attr("width", width)
       svg_input.attr("width", width)
       x_input.range([0, main_graph_width]);
       y_input.range([height/4, 0]);
@@ -1048,16 +1060,16 @@ defs.append("linearGradient")
       svg_input_Xaxis.call(xAxis)
       svg_input_Yaxis.call(yAxis)
 
-      svg_input.select(".x.axis").call(xAxis)
+      svg_input.select(".x.axis" + name).call(xAxis)
 
-      svg_input.select('.line').attr("d", input_line(values))
+      svg_input.select('.line' + name).attr("d", input_line(values))
 
 
 
       // update svg heatmap chart /////////////////////////////////////////////////////////
 
       // d3.select("#my_dataviz2").select("svg").attr("width", width)
-      d3.select("#my_dataviz2").selectAll("svg").attr("width", width)
+      d3.select("#my_dataviz" + name + "2").selectAll("svg").attr("width", width)
       svg_heatmap.attr("width", width)
 
       x_heat.range([0, main_graph_width]);
@@ -1069,7 +1081,7 @@ defs.append("linearGradient")
       svg_heat_Xaxis.call(xAxis_heat)
       // svg_heat_Yaxis.call(yAxis_heat)
 
-      svg_heatmap.select(".x.axis").call(xAxis_heat)
+      svg_heatmap.select(".x.axis" + name).call(xAxis_heat)
 
 
       heatmap.attr("x", function(d) { return x_heat(d.group) })
@@ -1093,9 +1105,9 @@ defs.append("linearGradient")
       svg_heat_min_ticks.call(xAxis_minor_ticks)
       svg_heat_noon_ticks.call(xAxis_noon_ticks)
 
-      svg_heatmap.select(".x.axis_dates").call(xAxis_dates)
-      svg_heatmap.select(".x.axis_dates_min").call(xAxis_minor_ticks)
-      svg_heatmap.select(".x.axis_dates_noon").call(xAxis_noon_ticks)
+      svg_heatmap.select(".x.axis_dates" + name).call(xAxis_dates)
+      svg_heatmap.select(".x.axis_dates_min" + name).call(xAxis_minor_ticks)
+      svg_heatmap.select(".x.axis_dates_noon" + name).call(xAxis_noon_ticks)
 
 
       // get legend width 
@@ -1104,25 +1116,25 @@ defs.append("linearGradient")
       legend_start =  legend_vars[1]
 
 
-      d3.select("#legend").select("svg").attr("width", width)
+      d3.select("#legend" + name).select("svg").attr("width", width)
       legend.attr("width", width)
 
       legendScale.range([legend_start, legend_width])
       legendAxis.scale(legendScale)
       legend_axis_ref.call(legendAxis)
-      legend.select(".x.axis_legend").call(legendScale)
+      legend.select(".x.axis_legend" + name).call(legendScale)
       legend.select("rect")
         .attr("width", legend_width - legend_start)
         .attr("transform", "translate(" + legend_start + ",0)")
 
 
-      legend.select(".legend_max_txt")
+      legend.select(".legend_max_txt" + name)
         .attr("x", (main_graph_width - legend_start - 20))
 
-      legend.select(".legend_min_txt")
+      legend.select(".legend_min_txt" + name)
         .attr("x", legend_start - 10)
 
-      legend.select(".legend_mid_txt")
+      legend.select(".legend_mid_txt" + name)
         .attr("x", (main_graph_width/2)-10)
 
 
@@ -1140,10 +1152,10 @@ defs.append("linearGradient")
       svg_output_Xaxis.call(xAxis_out)
       svg_output_Yaxis.call(yAxis_out)
 
-      svg_output.select(".x.axis_out").call(xAxis_out).select(".domain").remove();
+      svg_output.select(".x.axis_out" + name).call(xAxis_out).select(".domain").remove();
       // svg_output.select(".y.axis_out").call(yAxis_out)
 
-      svg_output.select('.line_output').attr("d", output_line(data_output))
+      svg_output.select('.line_output' + name).attr("d", output_line(data_output))
 
 
       var adj_width = width - buffer
@@ -1153,7 +1165,7 @@ defs.append("linearGradient")
         .attr("transform",
           "translate(" + adj_width + "," + 0 + ")");
 
-      svg_output.select(".output_svg_back").attr('width', width)
+      svg_output.select(".output_svg_back" + name).attr('width', width)
 
 
       // special width resize for mobile screens ///////////////////////////////////////////
@@ -1163,6 +1175,7 @@ defs.append("linearGradient")
 
 
       }
+
 
 
 
