@@ -16,7 +16,12 @@
 //     margin
 
 // var parseDate = d3.timeParse("%d/%m/%Y %H:%M");
-
+var graphsNameSpace_test = []
+// var chart_type = []
+var scales_test = []
+var axes_test = []
+var input_lines = []
+var values = [] 
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -24,6 +29,9 @@
 width = parseInt(d3.select('#content_graphs').style('width'), 10) 
 
 function context_graph(context_data, output_data, name) {
+
+  var scales = new Array()
+  var axes = new Array()
 
 // function instaniate_charts() {
   // set the dimensions and margins of the graph
@@ -42,7 +50,7 @@ function context_graph(context_data, output_data, name) {
           "translate(" + margin.left + "," + margin.top + ")");
 
   // heatmap legend
-  var legend = d3.select('#legend')
+  var legend = d3.select('#legend' + name)
   .append("svg")
     .attr("width", width)
     .attr("height", height -210)
@@ -53,7 +61,7 @@ function context_graph(context_data, output_data, name) {
 
 
   // input line graph
-  var svg_input = d3.select("#my_dataviz" + name + "3")
+  graphsNameSpace_test['svg_input_' + name] = d3.select("#my_dataviz" + name + "3")
   .append("svg")
     .attr("width", width)
     .attr("height", height - 190)   
@@ -85,7 +93,7 @@ function context_graph(context_data, output_data, name) {
 
 
   // Add chart title
-  svg_input.append("text")
+  graphsNameSpace_test['svg_input_' + name].append("text")
           .attr("x", (width /2)-margin.right)             
           .attr("y", 10)
           .style("font-size", "16px") 
@@ -112,21 +120,25 @@ function context_graph(context_data, output_data, name) {
 
 // INPUT LINE SETUP ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var x_input = d3.scaleLinear()
+scales['xscale'] = d3.scaleLinear()
   .range([0, main_graph_width])
   // .domain([0, 100])
 
-var y_input = d3.scaleLinear()
+// console.log('test')
+// console.log(scales_test)
+// console.log(Object.keys(scales_test))
+
+scales['yscale'] = d3.scaleLinear()
   // .domain([0, 0.5])
   .range([ height/4, 0 ]);
 
-var xAxis = d3.axisBottom().scale(x_input).tickSizeOuter(0).tickValues([]);
-var yAxis = d3.axisLeft().scale(y_input).tickSizeOuter(0).tickValues([]);
+axes['xAxis'] = d3.axisBottom().scale(scales['xscale']).tickSizeOuter(0).tickValues([]);
+axes['yAxis'] = d3.axisLeft().scale(scales['yscale']).tickSizeOuter(0).tickValues([]);
 
-var input_line = d3.line()
+input_lines[name] = d3.line()
                 .curve(d3.curveBasis)
-                .x(function(d) { return x_input(d.input_time_ref) })
-                .y(function(d) { return y_input(d.input_solar) })
+                .x(function(d) { return scales['xscale'](d.input_time_ref) })
+                .y(function(d) { return scales['yscale'](d.input_solar) })
 
 
 // HEATMAP SETUP ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -166,16 +178,16 @@ xAxis_noon_ticks = d3.axisBottom().scale(x_dates).tickFormat(d3.timeFormat("%a %
 
 
 // get width of legend relative to screen size
-legend_vars = legend_size(main_graph_width)
-legend_width = legend_vars[0]
-legend_start =  legend_vars[1]
+var legend_vars = legend_size(main_graph_width)
+var legend_width = legend_vars[0]
+var legend_start =  legend_vars[1]
 
 // setup for legend
-legendScale = d3.scaleLinear()
+var legendScale = d3.scaleLinear()
    .range([legend_start, legend_width])
 
 //Set up X axis
-legendAxis = d3.axisBottom().scale(legendScale)
+var legendAxis = d3.axisBottom().scale(legendScale)
 
 
 // OUTPUT SETUP ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -239,11 +251,11 @@ d3.csv(context_data,
 
 
 
-    values =  data 
-    data_output = data_out
+    values[name] =  data 
+    var data_output = data_out
 
     var defs = svg_heatmap.append("defs");
-    color = ["#2c7bb6", "#00a6ca","#00ccbc","#90eb9d","#ffff8c", "#f9d057","#f29e2e","#e76818","#d7191c"]
+    var color = ["#2c7bb6", "#00a6ca","#00ccbc","#90eb9d","#ffff8c", "#f9d057","#f29e2e","#e76818","#d7191c"]
     var colorScale = d3.scaleLinear().range(color);
 
     // List of groups = header of the csv files
@@ -340,30 +352,30 @@ var heatmap = svg_heatmap.selectAll()
 // //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // INPUT GRAPH
 
-    x_input.domain([0, d3.max(data, function(d) { return +d.input_time_ref; })])
-    y_input.domain([0, d3.max(data, function(d) { return +d.input_solar; })])
+    scales['xscale'].domain([0, d3.max(data, function(d) { return +d.input_time_ref; })])
+    scales['yscale'].domain([0, d3.max(data, function(d) { return +d.input_solar; })])
 
-    var svg_input_Xaxis = svg_input.append("g")
+    var svg_input_Xaxis = graphsNameSpace_test['svg_input_' + name].append("g")
       .attr("class", "x axis" + name)
       .attr("transform", "translate(0," + height/4 + ")")
-      .call(xAxis);
+      .call(axes['xAxis']);
 
       // .select(".domain").remove();
 
-    var svg_input_Yaxis = svg_input.append("g")
+    var svg_input_Yaxis = graphsNameSpace_test['svg_input_' + name].append("g")
       .attr("class", "y axis" + name)
-      .call(yAxis)
+      .call(axes['yAxis'])
       .select(".domain").remove();
 
     // Add the line path.
-    var path = svg_input.append("path")
-      .datum(values)
+    var path = graphsNameSpace_test['svg_input_' + name].append("path")
+      .datum(values[name])
       .attr("class", "line" + name)
       .attr("fill", "steelblue")
       .attr("fill-opacity", 0.2)
       .attr("stroke", "steelblue")
       .attr("stroke-width", 1)
-      .attr("d", input_line(values));
+      .attr("d", input_lines[name](values[name]));
 
 // //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // OUTPUT GRAPH
@@ -470,7 +482,7 @@ defs.append("linearGradient")
 
 // //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-     var mouseG = svg_input
+     var mouseG = graphsNameSpace_test['svg_input_' + name]
         .append("g")
         .attr("class", "mouse-over-effects" + name);
 
@@ -582,7 +594,7 @@ defs.append("linearGradient")
           .style("stroke", '#3A3B3C')
           .style("opacity", "0");
 
-        const point_input = svg_input.append('circle')
+        const point_input = graphsNameSpace_test['svg_input_' + name].append('circle')
           .attr('r', 4)
           .style("fill", 'none')
           .style("stroke", '#3A3B3C')
@@ -802,7 +814,7 @@ defs.append("linearGradient")
           heatmap.on('mousemove', () => {
 
               const x = d3.event.layerX - margin.left;
-              const curX = x_input.invert(x);
+              const curX = scales['xscale'].invert(x);
               const minX = Math.floor(curX);
               const maxX = Math.ceil(curX);
               if (data[minX] && data[maxX]) {
@@ -810,7 +822,7 @@ defs.append("linearGradient")
                 const minPx = data[minX].input_solar;
                 const maxPx = data[maxX].input_solar;
                 const curPx = minPx + (maxPx - minPx) * xDelta;
-                const yPos = y_input(curPx)
+                const yPos = scales['yscale'](curPx)
 
                 point_input
                   .attr('cx', x)
@@ -1028,6 +1040,10 @@ defs.append("linearGradient")
 
   })
     })
+  
+
+  scales_test.push(scales)
+  axes_test.push(axes)
 
   d3.select(window).on('resize',resize);
   return width
@@ -1037,11 +1053,22 @@ defs.append("linearGradient")
 
  var resize = function(e) {
 
+      // grab names 
+
       // console.log(name)
+      // console.log(Object.keys(graphsNameSpace_test).length)
+      // console.log(graphsNameSpace_test[Object.keys(graphsNameSpace_test)[0]])
+      // console.log(Object.keys(graphsNameSpace_test)[0])
+
+      console.log(scales_test)
 
       // update svg input chart /////////////////////////////////////////////////////////
       width = parseInt(d3.select('#content_graphs').style('width'), 10)
       height = 210
+
+      for (var idx = 0; idx < (Object.keys(graphsNameSpace_test).length); idx++) {
+        console.log(Object.keys(graphsNameSpace_test)[idx]);
+      
 
       dimensions = width_check(width, height)
       main_graph_width = dimensions[0]
@@ -1050,19 +1077,22 @@ defs.append("linearGradient")
 
 
       d3.select("#my_dataviz" + name + "3").select("svg").attr("width", width)
-      svg_input.attr("width", width)
-      x_input.range([0, main_graph_width]);
-      y_input.range([height/4, 0]);
+      graphsNameSpace_test[Object.keys(graphsNameSpace_test)[idx]].attr("width", width)
+      scales_test[idx]['xscale'].range([0, main_graph_width]);
+      scales_test[idx]['yscale'].range([height/4, 0]);
 
-      xAxis.scale(x_input);
-      yAxis.scale(y_input);
 
-      svg_input_Xaxis.call(xAxis)
-      svg_input_Yaxis.call(yAxis)
+      axes_test[idx]['xAxis'].scale(scales_test[idx]['xscale']);
+      axes_test[idx]['yAxis'].scale(scales_test[idx]['yscale']);
 
-      svg_input.select(".x.axis" + name).call(xAxis)
+      graphsNameSpace_test[Object.keys(graphsNameSpace_test)[idx]].call(axes_test[idx]['xAxis'])
+      graphsNameSpace_test[Object.keys(graphsNameSpace_test)[idx]].call(axes_test[idx]['yAxis'])
 
-      svg_input.select('.line' + name).attr("d", input_line(values))
+      graphsNameSpace_test[Object.keys(graphsNameSpace_test)[idx]].select(".x.axis" + name).call(axes_test[idx]['xAxis'])
+
+      graphsNameSpace_test[Object.keys(graphsNameSpace_test)[idx]].select('.line' + name).attr("d", input_lines[Object.keys(input_lines)[idx]](values[Object.keys(values)[idx]]))
+
+      }
 
 
 
