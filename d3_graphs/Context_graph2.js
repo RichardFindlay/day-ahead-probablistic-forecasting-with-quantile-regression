@@ -16,22 +16,36 @@
 //     margin
 
 // var parseDate = d3.timeParse("%d/%m/%Y %H:%M");
-var graphsNameSpace_test = []
+var input_graphs = []
 // var chart_type = []
-var scales_test = []
-var axes_test = []
+var input_scales = []
+var input_axes = []
 var input_lines = []
+
+var heatmap_graphs = []
+var heatmap_scales = []
+var heatmap_axes = []
+
+
 var values = [] 
+var charts = []
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-width = parseInt(d3.select('#content_graphs').style('width'), 10) 
+
 
 function context_graph(context_data, output_data, name) {
 
+  width = parseInt(d3.select('#test').style('width'), 10) 
+
   var scales = new Array()
   var axes = new Array()
+
+  var scales_heat = new Array()
+  var axes_heat = new Array()
+
+  charts.push(name)
 
 // function instaniate_charts() {
   // set the dimensions and margins of the graph
@@ -41,7 +55,7 @@ function context_graph(context_data, output_data, name) {
 
 
   // append the svg object to the body of the page
-  var svg_heatmap = d3.select("#my_dataviz" + name + "2")
+ heatmap_graphs['heatmap_' + name] = d3.select("#my_dataviz" + name + "2")
   .append("svg")
     .attr("width", width)
     .attr("height", height)
@@ -61,7 +75,7 @@ function context_graph(context_data, output_data, name) {
 
 
   // input line graph
-  graphsNameSpace_test['svg_input_' + name] = d3.select("#my_dataviz" + name + "3")
+  input_graphs['svg_input_' + name] = d3.select("#my_dataviz" + name + "3")
   .append("svg")
     .attr("width", width)
     .attr("height", height - 190)   
@@ -93,7 +107,7 @@ function context_graph(context_data, output_data, name) {
 
 
   // Add chart title
-  graphsNameSpace_test['svg_input_' + name].append("text")
+  input_graphs['svg_input_' + name].append("text")
           .attr("x", (width /2)-margin.right)             
           .attr("y", 10)
           .style("font-size", "16px") 
@@ -102,7 +116,7 @@ function context_graph(context_data, output_data, name) {
 
 
   // update current width of graphs
-  width = parseInt(d3.select('#content_graphs').style('width'), 10) 
+  width = parseInt(d3.select('#test').style('width'), 10) 
   height = 210
 
   dimensions = width_check(width, height)
@@ -144,14 +158,14 @@ input_lines[name] = d3.line()
 // HEATMAP SETUP ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-x_heat = d3.scaleBand()
+scales_heat['xscale'] = d3.scaleBand()
   .range([0, main_graph_width])
 
-y_heat = d3.scaleBand()
+scales_heat['yscale'] = d3.scaleBand()
   .range([height, 0])
 
-xAxis_heat = d3.axisBottom().scale(x_heat).tickSizeOuter(0).tickValues([]);
-yAxis_heat = d3.axisLeft().scale(y_heat).tickSizeOuter(0).tickValues([]);
+axes_heat['xAxis'] = d3.axisBottom().scale(scales_heat['xscale']).tickSizeOuter(0).tickValues([]);
+axes_heat['yAxis'] = d3.axisLeft().scale(scales_heat['yscale']).tickSizeOuter(0).tickValues([]);
 
 
 x_dates = d3.scaleTime()
@@ -254,7 +268,7 @@ d3.csv(context_data,
     values[name] =  data 
     var data_output = data_out
 
-    var defs = svg_heatmap.append("defs");
+    var defs = heatmap_graphs['heatmap_' + name].append("defs");
     var color = ["#2c7bb6", "#00a6ca","#00ccbc","#90eb9d","#ffff8c", "#f9d057","#f29e2e","#e76818","#d7191c"]
     var colorScale = d3.scaleLinear().range(color);
 
@@ -264,29 +278,29 @@ d3.csv(context_data,
 // //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // HEATMAP GRAPH
 
-    x_heat.domain(d3.map(data, function(d){return d.group;}).keys())
+    scales_heat['xscale'].domain(d3.map(data, function(d){return d.group;}).keys())
 
-    var svg_heat_Xaxis = svg_heatmap.append("g")
+    var svg_heat_Xaxis = heatmap_graphs['heatmap_' + name].append("g")
       .attr("class", "x axis" + name)
       .attr("transform", "translate(0," + height + ")")
-      .call(xAxis_heat)
+      .call(axes_heat['xAxis'])
       .select(".domain").remove()
 
-    y_heat.domain(d3.map(data, function(d){return d.variable;}).keys())
-    svg_heat_Yaxis = svg_heatmap.append("g")
+    scales_heat['yscale'].domain(d3.map(data, function(d){return d.variable;}).keys())
+    svg_heat_Yaxis = heatmap_graphs['heatmap_' + name].append("g")
       .attr("class", "y axis" + name)
-      .call(yAxis_heat)
+      .call(axes_heat['yAxis'])
 
 
 
-var heatmap = svg_heatmap.selectAll()
+var heatmap = heatmap_graphs['heatmap_' + name].selectAll()
     .data(data, function(d) {return d.group+':'+d.variable;})
     .enter()
     .append("rect")
-      .attr("x", function(d) { return x_heat(d.group) })
-      .attr("y", function(d) { return y_heat(d.variable )})
-      .attr("width", x_heat.bandwidth())
-      .attr("height", y_heat.bandwidth())
+      .attr("x", function(d) { return scales_heat['xscale'](d.group) })
+      .attr("y", function(d) { return scales_heat['yscale'](d.variable )})
+      .attr("width", scales_heat['xscale'].bandwidth())
+      .attr("height", scales_heat['yscale'].bandwidth())
       // .style("fill", function(d) { return colorScaleRainbow(colorInterpolateRainbow(d.value)); } )
       .style("opacity", 1.0)
       .style("stroke-width", 0)
@@ -306,14 +320,14 @@ var heatmap = svg_heatmap.selectAll()
 
     x_dates.domain(d3.extent(data, function(d){return d.group;}))
 
-    var svg_heat_Xdates = svg_heatmap.append("g")
+    var svg_heat_Xdates = heatmap_graphs['heatmap_' + name].append("g")
       .attr("class", "x axis_dates" + name)
       .attr("transform", "translate(0," + height + ")")
       .call(xAxis_dates)
 
     y_dates.domain(d3.extent(data, function(d){return d.variable;}))
     
-    var svg_heat_Ydates = svg_heatmap.append("g")
+    var svg_heat_Ydates = heatmap_graphs['heatmap_' + name].append("g")
       .style("text-transform", "uppercase")
       .style("font-size", "10px")
       .call(yAxis_dates)
@@ -321,12 +335,12 @@ var heatmap = svg_heatmap.selectAll()
       .attr("transform", "translate(-20, -20) rotate(-90)")
 
 
-    var svg_heat_Ydates_min = svg_heatmap.append("g")
+    var svg_heat_Ydates_min = heatmap_graphs['heatmap_' + name].append("g")
       .call(yAxis_minor_ticks)
       .select(".domain").remove();
 
 
-    var svg_heat_noon_ticks = svg_heatmap.append("g")
+    var svg_heat_noon_ticks = heatmap_graphs['heatmap_' + name].append("g")
       .attr("class", "x axis_dates_noon" + name)
       .attr("transform", "translate(0," + height + ")")
       .call(xAxis_noon_ticks)
@@ -335,7 +349,7 @@ var heatmap = svg_heatmap.selectAll()
       .select(".domain").remove();
 
 
-    var svg_heat_min_ticks = svg_heatmap.append("g")
+    var svg_heat_min_ticks = heatmap_graphs['heatmap_' + name].append("g")
       .attr("class", "x axis_date_min" + name)
       .attr("transform", "translate(0," + height + ")")
       .call(xAxis_minor_ticks)
@@ -355,20 +369,20 @@ var heatmap = svg_heatmap.selectAll()
     scales['xscale'].domain([0, d3.max(data, function(d) { return +d.input_time_ref; })])
     scales['yscale'].domain([0, d3.max(data, function(d) { return +d.input_solar; })])
 
-    var svg_input_Xaxis = graphsNameSpace_test['svg_input_' + name].append("g")
+    var svg_input_Xaxis = input_graphs['svg_input_' + name].append("g")
       .attr("class", "x axis" + name)
       .attr("transform", "translate(0," + height/4 + ")")
       .call(axes['xAxis']);
 
       // .select(".domain").remove();
 
-    var svg_input_Yaxis = graphsNameSpace_test['svg_input_' + name].append("g")
+    var svg_input_Yaxis = input_graphs['svg_input_' + name].append("g")
       .attr("class", "y axis" + name)
       .call(axes['yAxis'])
       .select(".domain").remove();
 
     // Add the line path.
-    var path = graphsNameSpace_test['svg_input_' + name].append("path")
+    var path = input_graphs['svg_input_' + name].append("path")
       .datum(values[name])
       .attr("class", "line" + name)
       .attr("fill", "steelblue")
@@ -482,7 +496,7 @@ defs.append("linearGradient")
 
 // //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-     var mouseG = graphsNameSpace_test['svg_input_' + name]
+     var mouseG = input_graphs['svg_input_' + name]
         .append("g")
         .attr("class", "mouse-over-effects" + name);
 
@@ -594,7 +608,7 @@ defs.append("linearGradient")
           .style("stroke", '#3A3B3C')
           .style("opacity", "0");
 
-        const point_input = graphsNameSpace_test['svg_input_' + name].append('circle')
+        const point_input = input_graphs['svg_input_' + name].append('circle')
           .attr('r', 4)
           .style("fill", 'none')
           .style("stroke", '#3A3B3C')
@@ -1042,8 +1056,11 @@ defs.append("linearGradient")
     })
   
 
-  scales_test.push(scales)
-  axes_test.push(axes)
+  input_scales.push(scales)
+  input_axes.push(axes)
+
+  heatmap_scales.push(scales_heat)
+  heatmap_axes.push(axes_heat)
 
   d3.select(window).on('resize',resize);
   return width
@@ -1059,143 +1076,144 @@ defs.append("linearGradient")
       // console.log(Object.keys(graphsNameSpace_test).length)
       // console.log(graphsNameSpace_test[Object.keys(graphsNameSpace_test)[0]])
       // console.log(Object.keys(graphsNameSpace_test)[0])
+      for (var idx = 0; idx < (Object.keys(input_graphs).length); idx++) {
+        // update svg input chart /////////////////////////////////////////////////////////
+        current_chart = charts[idx]
 
-      console.log(scales_test)
+        width = parseInt(d3.select('#test').style('width'), 10)
 
-      // update svg input chart /////////////////////////////////////////////////////////
-      width = parseInt(d3.select('#content_graphs').style('width'), 10)
-      height = 210
 
-      for (var idx = 0; idx < (Object.keys(graphsNameSpace_test).length); idx++) {
-        console.log(Object.keys(graphsNameSpace_test)[idx]);
+        height = 210
+
+        dimensions = width_check(width, height)
+        main_graph_width = dimensions[0]
+        buffer = dimensions[1]
+        output_graph_width = dimensions[2]
+
       
-
-      dimensions = width_check(width, height)
-      main_graph_width = dimensions[0]
-      buffer = dimensions[1]
-      output_graph_width = dimensions[2]
-
-
-      d3.select("#my_dataviz" + name + "3").select("svg").attr("width", width)
-      graphsNameSpace_test[Object.keys(graphsNameSpace_test)[idx]].attr("width", width)
-      scales_test[idx]['xscale'].range([0, main_graph_width]);
-      scales_test[idx]['yscale'].range([height/4, 0]);
+        d3.select("#my_dataviz" + name + "3").select("svg").attr("width", width)
+        input_graphs[Object.keys(input_graphs)[idx]].attr("width", width)
+        input_scales[idx]['xscale'].range([0, main_graph_width]);
+        input_scales[idx]['yscale'].range([height/4, 0]);
 
 
-      axes_test[idx]['xAxis'].scale(scales_test[idx]['xscale']);
-      axes_test[idx]['yAxis'].scale(scales_test[idx]['yscale']);
+        input_axes[idx]['xAxis'].scale(input_scales[idx]['xscale']);
+        input_axes[idx]['yAxis'].scale(input_scales[idx]['yscale']);
 
-      graphsNameSpace_test[Object.keys(graphsNameSpace_test)[idx]].call(axes_test[idx]['xAxis'])
-      graphsNameSpace_test[Object.keys(graphsNameSpace_test)[idx]].call(axes_test[idx]['yAxis'])
+        input_graphs[Object.keys(input_graphs)[idx]].call(input_axes[idx]['xAxis'])
+        input_graphs[Object.keys(input_graphs)[idx]].call(input_axes[idx]['yAxis'])
 
-      graphsNameSpace_test[Object.keys(graphsNameSpace_test)[idx]].select(".x.axis" + name).call(axes_test[idx]['xAxis'])
+        input_graphs[Object.keys(input_graphs)[idx]].select(".x.axis" + current_chart).call(input_axes[idx]['xAxis'])
 
-      graphsNameSpace_test[Object.keys(graphsNameSpace_test)[idx]].select('.line' + name).attr("d", input_lines[Object.keys(input_lines)[idx]](values[Object.keys(values)[idx]]))
+        input_graphs[Object.keys(input_graphs)[idx]].select('.line' + current_chart).attr("d", input_lines[Object.keys(input_lines)[idx]](values[Object.keys(values)[idx]]))
 
-      }
+      
 
 
 
       // update svg heatmap chart /////////////////////////////////////////////////////////
 
-      // d3.select("#my_dataviz2").select("svg").attr("width", width)
-      d3.select("#my_dataviz" + name + "2").selectAll("svg").attr("width", width)
-      svg_heatmap.attr("width", width)
+        d3.select("#my_dataviz" + name + "2").select("svg").attr("width", width)
+        d3.select("#my_dataviz" + name + "2").selectAll("svg").attr("width", width)
+        heatmap_graphs[Object.keys(heatmap_graphs)[idx]].attr("width", width)
 
-      x_heat.range([0, main_graph_width]);
-      y_heat.range([height, 0]);
+        heatmap_scales[idx]['xscale'].range([0, main_graph_width]);
+        heatmap_scales[idx]['yscale'].range([height, 0]);
 
-      xAxis_heat.scale(x_heat);
-      // yAxis_heat.scale(y_heat);
+        heatmap_axes[idx]['xAxis'].scale(heatmap_scales[idx]['xscale']);
+        heatmap_axes[idx]['yAxis'].scale(heatmap_scales[idx]['yscale']);
 
-      svg_heat_Xaxis.call(xAxis_heat)
-      // svg_heat_Yaxis.call(yAxis_heat)
+        heatmap_graphs[Object.keys(heatmap_graphs)[idx]].call(heatmap_axes[idx]['xAxis'])
+        heatmap_graphs[Object.keys(heatmap_graphs)[idx]].call(heatmap_axes[idx]['yAxis'])
 
-      svg_heatmap.select(".x.axis" + name).call(xAxis_heat)
+        heatmap_graphs[Object.keys(heatmap_graphs)[idx]].select(".x.axis" + current_chart).call(heatmap_axes[idx]['xAxis'])
 
+      }
 
-      heatmap.attr("x", function(d) { return x_heat(d.group) })
-        .attr("y", function(d) { return y_heat(d.variable )})
-        .attr("width", x_heat.bandwidth())
-        .attr("height", y_heat.bandwidth())
-
-
-      x_dates.range([0, main_graph_width]);
-      // y_dates.range([height, 0]);
-
-      xAxis_dates.scale(x_dates);
-      // yAxis_dates.scale(y_dates);
-
-      xAxis_minor_ticks.scale(x_dates);
-      xAxis_noon_ticks.scale(x_dates);
-
-      svg_heat_Xdates.call(xAxis_dates)
-      // svg_heat_Ydates.call(yAxis_dates)
-
-      svg_heat_min_ticks.call(xAxis_minor_ticks)
-      svg_heat_noon_ticks.call(xAxis_noon_ticks)
-
-      svg_heatmap.select(".x.axis_dates" + name).call(xAxis_dates)
-      svg_heatmap.select(".x.axis_dates_min" + name).call(xAxis_minor_ticks)
-      svg_heatmap.select(".x.axis_dates_noon" + name).call(xAxis_noon_ticks)
+      // heatmap.attr("x", function(d) { return x_heat(d.group) })
+      //   .attr("y", function(d) { return y_heat(d.variable )})
+      //   .attr("width", x_heat.bandwidth())
+      //   .attr("height", y_heat.bandwidth())
 
 
-      // get legend width 
-      legend_vars = legend_size(main_graph_width)
-      legend_width = legend_vars[0]
-      legend_start =  legend_vars[1]
+      // x_dates.range([0, main_graph_width]);
+      // // y_dates.range([height, 0]);
+
+      // xAxis_dates.scale(x_dates);
+      // // yAxis_dates.scale(y_dates);
+
+      // xAxis_minor_ticks.scale(x_dates);
+      // xAxis_noon_ticks.scale(x_dates);
+
+      // svg_heat_Xdates.call(xAxis_dates)
+      // // svg_heat_Ydates.call(yAxis_dates)
+
+      // svg_heat_min_ticks.call(xAxis_minor_ticks)
+      // svg_heat_noon_ticks.call(xAxis_noon_ticks)
+
+      // svg_heatmap.select(".x.axis_dates" + name).call(xAxis_dates)
+      // svg_heatmap.select(".x.axis_dates_min" + name).call(xAxis_minor_ticks)
+      // svg_heatmap.select(".x.axis_dates_noon" + name).call(xAxis_noon_ticks)
 
 
-      d3.select("#legend" + name).select("svg").attr("width", width)
-      legend.attr("width", width)
+      // // update legend /////////////////////////////////////////////////////////
 
-      legendScale.range([legend_start, legend_width])
-      legendAxis.scale(legendScale)
-      legend_axis_ref.call(legendAxis)
-      legend.select(".x.axis_legend" + name).call(legendScale)
-      legend.select("rect")
-        .attr("width", legend_width - legend_start)
-        .attr("transform", "translate(" + legend_start + ",0)")
+      // // get legend width 
+      // legend_vars = legend_size(main_graph_width)
+      // legend_width = legend_vars[0]
+      // legend_start =  legend_vars[1]
 
 
-      legend.select(".legend_max_txt" + name)
-        .attr("x", (main_graph_width - legend_start - 20))
+      // d3.select("#legend" + name).select("svg").attr("width", width)
+      // legend.attr("width", width)
 
-      legend.select(".legend_min_txt" + name)
-        .attr("x", legend_start - 10)
-
-      legend.select(".legend_mid_txt" + name)
-        .attr("x", (main_graph_width/2)-10)
-
-
-
-
-      // update svg output chart /////////////////////////////////////////////////////////
-
-      svg_output.attr("width", width)
-      x_output.range([ 0, output_graph_width]);
-      y_output.range([height, 0]);
-
-      xAxis_out.scale(x_output);
-      yAxis_out.scale(y_output);
-
-      svg_output_Xaxis.call(xAxis_out)
-      svg_output_Yaxis.call(yAxis_out)
-
-      svg_output.select(".x.axis_out" + name).call(xAxis_out).select(".domain").remove();
-      // svg_output.select(".y.axis_out").call(yAxis_out)
-
-      svg_output.select('.line_output' + name).attr("d", output_line(data_output))
+      // legendScale.range([legend_start, legend_width])
+      // legendAxis.scale(legendScale)
+      // legend_axis_ref.call(legendAxis)
+      // legend.select(".x.axis_legend" + name).call(legendScale)
+      // legend.select("rect")
+      //   .attr("width", legend_width - legend_start)
+      //   .attr("transform", "translate(" + legend_start + ",0)")
 
 
-      var adj_width = width - buffer
+      // legend.select(".legend_max_txt" + name)
+      //   .attr("x", (main_graph_width - legend_start - 20))
+
+      // legend.select(".legend_min_txt" + name)
+      //   .attr("x", legend_start - 10)
+
+      // legend.select(".legend_mid_txt" + name)
+      //   .attr("x", (main_graph_width/2)-10)
+
+
+
+
+      // // update svg output chart /////////////////////////////////////////////////////////
+
       // svg_output.attr("width", width)
-      svg_output
-        // .attr('width', width + 100)+
-        .attr("transform",
-          "translate(" + adj_width + "," + 0 + ")");
+      // x_output.range([ 0, output_graph_width]);
+      // y_output.range([height, 0]);
 
-      svg_output.select(".output_svg_back" + name).attr('width', width)
+      // xAxis_out.scale(x_output);
+      // yAxis_out.scale(y_output);
+
+      // svg_output_Xaxis.call(xAxis_out)
+      // svg_output_Yaxis.call(yAxis_out)
+
+      // svg_output.select(".x.axis_out" + name).call(xAxis_out).select(".domain").remove();
+      // // svg_output.select(".y.axis_out").call(yAxis_out)
+
+      // svg_output.select('.line_output' + name).attr("d", output_line(data_output))
+
+
+      // var adj_width = width - buffer
+      // // svg_output.attr("width", width)
+      // svg_output
+      //   // .attr('width', width + 100)+
+      //   .attr("transform",
+      //     "translate(" + adj_width + "," + 0 + ")");
+
+      // svg_output.select(".output_svg_back" + name).attr('width', width)
 
 
       // special width resize for mobile screens ///////////////////////////////////////////
