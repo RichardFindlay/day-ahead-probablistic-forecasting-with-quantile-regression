@@ -44,6 +44,12 @@ var axis_date_groups = []
 var heatmap_groups = []
 var input_groups = []
 
+
+var legend_graphs = []
+var legend_scales = []
+var legend_axes = []
+
+
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -86,13 +92,13 @@ function context_graph(context_data, output_data, name) {
           "translate(" + margin.left + "," + margin.top + ")");
 
   // heatmap legend
-  var legend = d3.select('#legend' + name)
+  legend_graphs['legend_' + name] = d3.select('#legend' + name)
   .append("svg")
-    .attr("width", width)
-    .attr("height", height -210)
+    .attr("width", 50)
+    .attr("height", height)
   .append("g")
     .attr("transform",
-          "translate(" + margin.left + "," + 0+ ")");
+          "translate(" + margin.left + "," + 20+ ")");
 
 
 
@@ -129,12 +135,12 @@ function context_graph(context_data, output_data, name) {
 
 
   // Add chart title
-  input_graphs['svg_input_' + name].append("text")
-          .attr("x", (width/2)-margin.right - margin.left)             
-          .attr("y", 10)
-          .style("font-size", "16px") 
-          .style("text-decoration", "underline")  
-          .text(name);
+  // input_graphs['svg_input_' + name].append("text")
+  //         .attr("x", (width/2)-margin.right - margin.left)             
+  //         .attr("y", 10)
+  //         .style("font-size", "16px") 
+  //         .style("text-decoration", "underline")  
+  //         .text(name);
 
 
   // update current width of graphs
@@ -210,16 +216,16 @@ axes_dates_noon['xAxis'] = d3.axisBottom().scale(scale_dates['xscale']).tickForm
 
 
 // get width of legend relative to screen size
-var legend_vars = legend_size(main_graph_width)
-var legend_width = legend_vars[0]
-var legend_start =  legend_vars[1]
+// var legend_vars = legend_size(main_graph_width)
+// var legend_width = legend_vars[0]
+// var legend_start =  legend_vars[1]
 
 // setup for legend
-var legendScale = d3.scaleLinear()
-   .range([legend_start, legend_width])
+legend_scales['legendScale' + name] = d3.scaleLinear()
+   .range([height, 0])
 
 //Set up X axis
-var legendAxis = d3.axisBottom().scale(legendScale)
+legend_axes['legendAxis' + name] = d3.axisBottom().scale(legend_scales['legendScale' + name])
 
 
 // OUTPUT SETUP ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -527,6 +533,10 @@ defs.append("linearGradient")
         .append("g")
         .attr("class", "mouse-over-effects2" + name);
 
+     var mouseG3 = legend_graphs['legend_' + name]  
+        .append("g")
+        .attr("class", "mouse-over-effects3" + name);
+
       mouseG
         .append("path") // this is the black vertical line to follow mouse
         .attr("class", "mouse-line" + name)
@@ -541,6 +551,13 @@ defs.append("linearGradient")
         .style("stroke-width", "0.5px")
         .style("opacity", 0.75)
 
+      mouseG3
+        .append("path") // this is the black vertical line to follow mouse
+        .attr("class", "mouse-line3" + name)
+        .style("stroke", "#393B45") //6E7889
+        .style("stroke-width", "0.5px")
+        .style("opacity", 0.75)
+
       mouseG.append("text")
         .attr("class", "mouse-text" + name)
         .attr('font-size', "8px")
@@ -548,6 +565,8 @@ defs.append("linearGradient")
       mouseG2.append("text")
         .attr("class", "mouse-text2" + name)
 
+      mouseG3.append("text")
+        .attr("class", "mouse-text3" + name)
 
       // var lines = document.getElementsByClassName('line');
       var lines = [path,path_out]
@@ -567,6 +586,13 @@ defs.append("linearGradient")
         .enter()
         .append("g")
         .attr("class", "mouse-per-line2" + name);
+
+      var mousePerLine3 = mouseG2.selectAll('.mouse-per-line3' + name)
+        .data(values[name])
+        .enter()
+        .append("g")
+        .attr("class", "mouse-per-line3" + name);
+
 
 
 
@@ -603,6 +629,9 @@ defs.append("linearGradient")
           d3.select("#my_dataviz" + name + "4")
             .select(".mouse-line2" + name)
             .style("opacity", "0");
+          d3.select("#legend" + name)
+            .select(".mouse-line3" + name)
+            .style("opacity", "0");
           d3.select("#my_dataviz" + name + "3")
             .select(".mouse-text" + name)
             .style("opacity", "0");
@@ -625,6 +654,17 @@ defs.append("linearGradient")
             .selectAll(".mouse-per-line2" + name + "circle")
             .style("opacity", "0"); })
 
+        mouseG3
+          .append('svg:rect') // append a rect to catch mouse movements on canvas
+          .attr('width', width) // can't catch mouse events on a g element
+          .attr('height', height) 
+          .attr('fill', 'none')
+          .attr('pointer-events', 'all')
+        .on('mouseout', function() {
+          d3.select("#legend" + name)
+            .selectAll(".mouse-per-line3" + name + "circle")
+            .style("opacity", "0"); })
+
         const point = output_graphs['svg_output_' + name].append('circle')
           .attr('r', 4)
           .style("fill", 'none')
@@ -634,6 +674,12 @@ defs.append("linearGradient")
         const point_input = input_graphs['svg_input_' + name].append('circle')
           .attr('r', 4)
           .style("fill", 'none')
+          .style("stroke", '#3A3B3C')
+          .style("opacity", "0");
+
+        const legend_indicator = legend_graphs['legend_' + name].append('polygon')
+          // .attr('points', "0,0 10,5 0,10")
+          // .style("fill", 'none')
           .style("stroke", '#3A3B3C')
           .style("opacity", "0");
 
@@ -670,6 +716,9 @@ defs.append("linearGradient")
             .select(".mouse-text2" + name)
             .style("opacity", "1")
             .select(".mouse-per-line2" + name + "circle")
+            .style("opacity", "1")
+        d3.select("#legend" + name)
+            .select(".mouse-line3" + name)
             .style("opacity", "1")
         tooltip
             .style("opacity",0.75);
@@ -784,11 +833,17 @@ defs.append("linearGradient")
           /////////////////////////////////////////////////// 
           d3.select("#my_dataviz" + name + "4")
           var mouse2 = d3.mouse(this);
-
            d3.select("#my_dataviz" + name + "4")
             .select(".mouse-text2" + name)
             .attr("y", mouse2[1])
             .attr("transform", "translate(" + (mouse2[1]+5) + "," + (mouse2[1]+2) + ") rotate(90)")
+
+          d3.select("#legend" + name)
+          var mouse3 = d3.mouse(this);
+           d3.select("#legend" + name)
+            .select(".mouse-text3" + name)
+            .attr("y", mouse3[1])
+            .attr("transform", "translate(" + (mouse3[1]+5) + "," + (mouse3[1]+2) + ") rotate(90)")
 
           // d3.select("#my_dataviz4")
           //   .select(".mouse-line2")
@@ -894,6 +949,7 @@ defs.append("linearGradient")
               const curY = scales_out['yscale'].invert(y);
               const minY = Math.floor(curY);
               const maxY = Math.ceil(curY);
+              const legend_loc = legend_scales['legendScale' + name](d.value);
               if (data_out[minY] && data_out[maxY]) {
                 const yDelta = curY - minY;
                 const minP = data_out[minY].prediction;
@@ -902,9 +958,9 @@ defs.append("linearGradient")
                 const xPos = scales_out['xscale'](curP)
                 // console.log(xPos);
                 point
-                  .attr('cx', xPos)
-                  .attr('cy', y)
-                  .style("opacity", "1");
+                    .attr('cx', xPos)
+                    .attr('cy', y)
+                    .style("opacity", "1");
 
                 d3.select("#my_dataviz" + name + "4")
                   .select(".mouse-line2" + name)
@@ -913,6 +969,24 @@ defs.append("linearGradient")
                     d += " " + 0 + "," + y;
                     return d;
                   })
+
+                d3.select("#legend" + name)
+                  .select(".mouse-line3" + name)
+                  .attr("d", function() {
+                    var d = "M" + output_graph_width + "," + legend_loc;
+                    d += " " + 0 + "," + legend_loc;
+                    return d;
+                  })
+
+              legend_indicator
+                .attr('points',  "0," + (legend_loc-5) + " " + "10," + (legend_loc) + " " + "0,"+ (legend_loc+5))
+                // .attr('points', "0,-5 10,0 0,5")
+                // .attr('points', "0,10 10,15 0,20")
+                .style("opacity", "1");
+
+
+                console.log(legend_loc)
+                console.log((legend_loc) + "," + (legend_loc) + " " + (legend_loc+10) + ","+ (legend_loc+5) + " " + (legend_loc) + ","+ (legend_loc+10))
 
                 var xDate2 = scale_dates['yscale'].invert(y)
                 time2 = d3.timeFormat("%H:%M %p")(xDate2)
@@ -973,17 +1047,17 @@ defs.append("linearGradient")
 
 
 
-      legendWidth = width - 200
-      legendHeight = 7.5
+      var legendWidth = width - 200
+      var legendHeight = 7.5
 
 
       //  make the heatmap legend
       // https://www.visualcinnamon.com/2016/05/smooth-color-legend-d3-svg-gradient/
-      var defs = legend.append("defs");
+      var defs = legend_graphs['legend_' + name].append("defs");
 
       //Append a linearGradient element to the defs and give it a unique id
       var linearGradient = defs.append("linearGradient")
-          .attr("id", "linear-gradient");
+          .attr("id", "linear-gradient" + name);
 
 
       //Append multiple color stops by using D3's data/enter step
@@ -1019,11 +1093,11 @@ defs.append("linearGradient")
 
 
       //Draw the rectangle and fill with gradient
-      legend.append("rect")
-          .attr("width", legend_width - legend_start)
+      legend_graphs['legend_' + name].append("rect")
+          .attr("width", height)
           .attr("height", legendHeight)
-          .attr("transform", "translate(" + legend_start + ",0)")
-          .style("fill", "url(#linear-gradient)");
+          .attr("transform", "translate(" + "10" + ","+ height+") rotate(-90)")
+          .style("fill", "url(#linear-gradient" + name +  ")");
 
       //Append title
       // legend.append("text")
@@ -1034,16 +1108,16 @@ defs.append("linearGradient")
       //   .style("fill", "#4F4F4F")
       //   .text("Context");
 
-      legendScale.domain([min,max])
+      legend_scales['legendScale' + name].domain([min,max])
 
-      legend_axis_ref = legend.append("g")
+      var legend_axis_ref = legend_graphs['legend_' + name].append("g")
         .attr("class", "x axis_legend")
         .attr("transform", "translate(" + (-legendWidth/legendWidth+1) + "," + (legendHeight) + ")")
-        .call(legendAxis.ticks(0).tickSize(0))
+        .call(legend_axes['legendAxis' + name].ticks(0).tickSize(0))
         .select(".domain").remove();
 
       // manually append min and max to legend
-      legend
+      legend_graphs['legend_' + name]
         .append("text")
         .attr("class", "legend_max_txt" + name)
         .attr("x", (main_graph_width - legend_start - 20))
@@ -1053,7 +1127,7 @@ defs.append("linearGradient")
         // .style("text-anchor", "end ")
         .text(d3.format(".4f")(max));
 
-      legend
+      legend_graphs['legend_' + name]
         .append("text")
         .attr("class", "legend_min_txt" + name)
         .attr("x", legend_start - 10)
@@ -1063,7 +1137,7 @@ defs.append("linearGradient")
         // .style("text-anchor", "end ")
         .text(d3.format(".4f")(min));
 
-      legend
+      legend_graphs['legend_' + name]
         .append("text")
         .attr("class", "legend_mid_txt" + name)
         .attr("x",(main_graph_width/2)-10)
