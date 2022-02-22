@@ -720,6 +720,8 @@ defs.append("linearGradient")
         d3.select("#legend" + name)
             .select(".mouse-line3" + name)
             .style("opacity", "1")
+            .select(".mouse-text3" + name)
+            .style("opacity", "1")
         tooltip
             .style("opacity",0.75);
 
@@ -838,12 +840,12 @@ defs.append("linearGradient")
             .attr("y", mouse2[1])
             .attr("transform", "translate(" + (mouse2[1]+5) + "," + (mouse2[1]+2) + ") rotate(90)")
 
-          d3.select("#legend" + name)
-          var mouse3 = d3.mouse(this);
-           d3.select("#legend" + name)
-            .select(".mouse-text3" + name)
-            .attr("y", mouse3[1])
-            .attr("transform", "translate(" + (mouse3[1]+5) + "," + (mouse3[1]+2) + ") rotate(90)")
+          // d3.select("#legend" + name)
+          // var mouse3 = d3.mouse(this);
+          //  d3.select("#legend" + name)
+          //   .select(".mouse-text3" + name)
+          //   .attr("y", mouse3[1])
+          //   .attr("transform", "translate(" + (mouse3[1]) + "," + (mouse3[1]) + ") rotate(90)")
 
           // d3.select("#my_dataviz4")
           //   .select(".mouse-line2")
@@ -971,6 +973,14 @@ defs.append("linearGradient")
                   })
 
                 d3.select("#legend" + name)
+                var mouse3 = d3.mouse(this);
+                 d3.select("#legend" + name)
+                  .select(".mouse-text3" + name)
+                  .attr("y", legend_loc)
+                  .attr("transform", "translate(" + (-20) + "," + (5) + ")")
+
+
+                d3.select("#legend" + name)
                   .select(".mouse-line3" + name)
                   .attr("d", function() {
                     var d = "M" + output_graph_width + "," + legend_loc;
@@ -996,6 +1006,14 @@ defs.append("linearGradient")
                   .style("opacity", 0.5)
                   .style("text-transform", "uppercase")
                   .style("font", "13px arial")
+
+
+                d3.select("#legend" + name).select('.mouse-text3' + name)
+                  .text(d.value.toFixed(4))
+                  .style("opacity", 0.5)
+                  .style("text-transform", "uppercase")
+                  .style("font", "8px arial")
+
 
                 d3.select("#my_dataviz" + name + "2").select('.tooltip')
                 // tooltip
