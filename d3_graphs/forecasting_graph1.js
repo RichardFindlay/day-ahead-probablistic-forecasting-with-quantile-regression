@@ -1,6 +1,8 @@
 
 
 function prob_forecast(file, ref, color_array) {
+
+  
   // set the dimensions and margins of the graph
   var margin = {top: 10, right: 0, bottom: 50, left: 80},
       width = 1000 - margin.left - margin.right,
@@ -120,18 +122,33 @@ function prob_forecast(file, ref, color_array) {
 
 
     // Add Y axis label:
+    if (ref === "price") {
     svg.append("text")
         .attr("text-anchor", "end")
         // .attr("y", +margin.left)
         // .attr("x",  -margin.top + height/2)
         .attr("y", -margin.left + 25)
-        .attr("x", -height/2 + 100)
-        .text(ref +" Generation (MW)")
-        .style("font", "16px arial")
+        .attr("x", -height/2 + 25)
+        .text(ref +" (£)")
+        .style("font", "14px arial")
         .style("text-transform", "uppercase")
         // .attr("transform",
         //     "translate(" + (height/2) + ")")
         .attr("transform", "rotate(-90)");
+    } else {
+    svg.append("text")
+        .attr("text-anchor", "end")
+        // .attr("y", +margin.left)
+        // .attr("x",  -margin.top + height/2)
+        .attr("y", -margin.left + 25)
+        .attr("x", -height/2 + 75)
+        .text(ref +" Generation (MW)")
+        .style("font", "14px arial")
+        .style("text-transform", "uppercase")
+        // .attr("transform",
+        //     "translate(" + (height/2) + ")")
+        .attr("transform", "rotate(-90)");
+    }
 
     // Add Y axis
     var y = d3.scaleLinear()
@@ -349,7 +366,6 @@ function prob_forecast(file, ref, color_array) {
       //   .attr("stroke-dashoffset", 0)
       //   .on("end")
 
-    console.log(totalLength2)
 
     // legend
     var count = ['1','2','3','4','5','6'] 
@@ -416,7 +432,7 @@ function prob_forecast(file, ref, color_array) {
       var res = sumstat.map(function(d){ return d.key })
       var color = d3.scaleOrdinal()
             .domain(res)
-            .range(['#7c9ab0','red'])
+            .range(['black','red'])
 
 
       mousePerLine.append("circle")
@@ -440,7 +456,7 @@ function prob_forecast(file, ref, color_array) {
         .attr('height', height)
         .attr('fill', 'none')
         .attr('pointer-events', 'all')
-        .on('mouseout', function() { // on mouse out hide line, circles and text
+        .on('mouseout touchout', function() { // on mouse out hide line, circles and text
           d3.select("#my_dataviz_" + ref)
             .select(".mouse-line ")
             .style("opacity", "0" );
@@ -454,7 +470,7 @@ function prob_forecast(file, ref, color_array) {
             .selectAll(".mouse-per-line text")
             .style("opacity", "0")
         })
-        .on('mouseover', function() { // on mouse in show line, circles and text
+        .on('mouseover touchover', function() { // on mouse in show line, circles and text
           d3.select("#my_dataviz_" + ref)
             .select(".mouse-line")
             .style("opacity", "1");
@@ -468,7 +484,7 @@ function prob_forecast(file, ref, color_array) {
             .style("opacity", "1");
 
         })
-        .on('mousemove', function() { // mouse moving over canvas
+        .on('mousemove touchmove', function() { // mouse moving over canvas
           var mouse = d3.mouse(this);
           d3.select("#my_dataviz_" + ref)
             .select(".mouse-text")
@@ -488,14 +504,11 @@ function prob_forecast(file, ref, color_array) {
               .attr("transform", function(d, i) {
                 if (i >= 2){ return null };
 
-                console.log(i)
-
-
                 var xDate = x.invert(mouse[0])
                 time = d3.timeFormat("%H:%M %p")(xDate)
 
-                    // bisect = d3.bisector(function(d) { return d.date; }).left;
-                    // idx = bisect(data, xDate, 1);
+                // bisect = d3.bisector(function(d) { return d.date; }).left;
+                // idx = bisect(data, xDate, 1);
                 
                 var beginning = 0,
                     // end = lines[i].node().getTotalLength()
@@ -527,7 +540,7 @@ function prob_forecast(file, ref, color_array) {
                   .text(y.invert(pos.y).toFixed(1) + " MW") 
                   .attr("transform", "translate(-75,0)")
                   .style("font", "16px arial")
-                  .style('fill', 'blue');
+                  .style('fill', 'black');
                 }
                 d3.select(this).select('circle')
                   .style("opacity", 1)
@@ -541,7 +554,8 @@ function prob_forecast(file, ref, color_array) {
 
                 return "translate(" + mouse[0] + "," + pos.y +")";
               });
-        });
+        })
+
 
     // Add Y line:
     svg.append("line")
