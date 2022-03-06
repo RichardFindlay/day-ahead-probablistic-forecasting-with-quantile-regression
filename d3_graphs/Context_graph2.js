@@ -56,8 +56,8 @@ var legend_axes = []
 
 
 function context_graph(context_data, output_data, name) {
+  console.log("context 2 loaded")
 
-  width = 1200
 
   var scales = new Array()
   var axes = new Array()
@@ -81,6 +81,8 @@ function context_graph(context_data, output_data, name) {
   // width = 1500 
   height = 275
 
+  width = parseInt(d3.select('.slideshow-container').style('width'), 10) 
+
 
   // append the svg object to the body of the page
  heatmap_graphs['heatmap_' + name] = d3.select("#my_dataviz" + name + "2")
@@ -94,11 +96,11 @@ function context_graph(context_data, output_data, name) {
   // heatmap legend
   legend_graphs['legend_' + name] = d3.select('#legend' + name)
   .append("svg")
-    .attr("width", 50)
+    .attr("width", 80)
     .attr("height", height)
   .append("g")
     .attr("transform",
-          "translate(" + margin.left + "," + 20+ ")");
+          "translate(" + (margin.left+20) + "," + 20 + ")");
 
 
 
@@ -144,7 +146,7 @@ function context_graph(context_data, output_data, name) {
 
 
   // update current width of graphs
-  width = parseInt(d3.select('#test').style('width'), 10) + 60
+  // width = parseInt(d3.select('#test').style('width'), 10) + 60
   height = 210
 
   dimensions = width_check(width, height)
@@ -508,6 +510,112 @@ var min = d3.min(values[name], function(d){return d.value;})
 var max = d3.max(values[name], function(d){return d.value;})
 
 
+var legendWidth = width - 200
+    var legendHeight = 7.5
+
+
+    //  make the heatmap legend
+    // https://www.visualcinnamon.com/2016/05/smooth-color-legend-d3-svg-gradient/
+    var defs = legend_graphs['legend_' + name].append("defs");
+
+    //Append a linearGradient element to the defs and give it a unique id
+    var linearGradient = defs.append("linearGradient")
+        .attr("id", "linear-gradient" + name);
+
+
+    //Append multiple color stops by using D3's data/enter step
+    linearGradient.selectAll("stop")
+        .data([
+            {offset: "0%", color: "#2c7bb6"},
+            {offset: "12.5%", color: "#00a6ca"},
+            {offset: "25%", color: "#00ccbc"},
+            {offset: "37.5%", color: "#90eb9d"},
+            {offset: "50%", color: "#ffff8c"},
+            {offset: "62.5%", color: "#f9d057"},
+            {offset: "75%", color: "#f29e2e"},
+            {offset: "87.5%", color: "#e76818"},
+            {offset: "100%", color: "#d7191c"}
+          ])
+        .enter().append("stop")
+        .attr("offset", function(d) { return d.offset; })
+        .attr("stop-color", function(d) { return d.color; });
+
+
+    //A color scale
+    var colorScale = d3.scaleLinear()
+        .range(["#2c7bb6", "#00a6ca","#00ccbc","#90eb9d","#ffff8c",
+                "#f9d057","#f29e2e","#e76818","#d7191c"]);
+
+    //Append multiple color stops by using D3's data/enter step
+    linearGradient.selectAll("stop")
+        .data( colorScale.range())
+        .enter().append("stop")
+        .attr("offset", function(d,i) { return i/(colorScale.range().length-1); })
+        .attr("stop-color", function(d) { return d; });
+
+
+
+    //Draw the rectangle and fill with gradient
+    legend_graphs['legend_' + name].append("rect")
+        .attr("width", height)
+        .attr("height", legendHeight)
+        .attr("transform", "translate(" + "10" + ","+ height+") rotate(-90)")
+        .style("fill", "url(#linear-gradient" + name +  ")");
+
+    //Append title
+    // legend.append("text")
+    //   .attr("class", "legendTitle")
+    //   .attr("x", 100)
+    //   .attr("y", -1)
+    //   .style("text-anchor", "middle")
+    //   .style("fill", "#4F4F4F")
+    //   .text("Context");
+
+    legend_scales['legendScale' + name].domain([min,max])
+
+    var legend_axis_ref = legend_graphs['legend_' + name].append("g")
+      .attr("class", "x axis_legend")
+      .attr("transform", "translate(" + (-legendWidth/legendWidth+1) + "," + (legendHeight) + ")")
+      .call(legend_axes['legendAxis' + name].ticks(0).tickSize(0))
+      .select(".domain").remove();
+
+    // // manually append min and max to legend
+    // legend_graphs['legend_' + name]
+    //   .append("text")
+    //   .attr("class", "legend_max_txt" + name)
+    //   .attr("x", (main_graph_width - legend_start - 20))
+    //   .attr("y", 18)
+    //   .attr("font-family", "arial")
+    //   .attr("font-size", "10.25")
+    //   // .style("text-anchor", "end ")
+    //   .text(d3.format(".4f")(max));
+
+    // legend_graphs['legend_' + name]
+    //   .append("text")
+    //   .attr("class", "legend_min_txt" + name)
+    //   .attr("x", legend_start - 10)
+    //   .attr("y", 18)
+    //   .attr("font-family", "arial")
+    //   .attr("font-size", "10.25")
+    //   // .style("text-anchor", "end ")
+    //   .text(d3.format(".4f")(min));
+
+    // legend_graphs['legend_' + name]
+    //   .append("text")
+    //   .attr("class", "legend_mid_txt" + name)
+    //   .attr("x",(main_graph_width/2)-10)
+    //   .attr("y", 18)
+    //   .attr("font-family", "arial")
+    //   .attr("font-size", "10.25")
+    //   // .style("text-anchor", "end ")
+    //   .text(d3.format(".4f")((min+max)/2));
+
+    // d3.select(window).on('resize', resize);
+
+
+
+
+
 ///////////////////////////////////////////////////////////////////////////
 //////////////////// Create the Rainbow color gradient ////////////////////
 ///////////////////////////////////////////////////////////////////////////
@@ -555,7 +663,7 @@ defs.append("linearGradient")
         .append("path") // this is the black vertical line to follow mouse
         .attr("class", "mouse-line3" + name)
         .style("stroke", "#393B45") //6E7889
-        .style("stroke-width", "0.5px")
+        .style("stroke-width", "1px")
         .style("opacity", 0.75)
 
       mouseG.append("text")
@@ -977,13 +1085,13 @@ defs.append("linearGradient")
                  d3.select("#legend" + name)
                   .select(".mouse-text3" + name)
                   .attr("y", legend_loc)
-                  .attr("transform", "translate(" + (-20) + "," + (5) + ")")
+                  .attr("transform", "translate(" + (-30.5) + "," + (2.5) + ")")
 
 
                 d3.select("#legend" + name)
                   .select(".mouse-line3" + name)
                   .attr("d", function() {
-                    var d = "M" + output_graph_width + "," + legend_loc;
+                    var d = "M" + 18 + "," + legend_loc;
                     d += " " + 0 + "," + legend_loc;
                     return d;
                   })
@@ -1012,7 +1120,7 @@ defs.append("linearGradient")
                   .text(d.value.toFixed(4))
                   .style("opacity", 0.5)
                   .style("text-transform", "uppercase")
-                  .style("font", "8px arial")
+                  .style("font", "9px arial")
 
 
                 d3.select("#my_dataviz" + name + "2").select('.tooltip')
@@ -1065,107 +1173,7 @@ defs.append("linearGradient")
 
 
 
-      var legendWidth = width - 200
-      var legendHeight = 7.5
-
-
-      //  make the heatmap legend
-      // https://www.visualcinnamon.com/2016/05/smooth-color-legend-d3-svg-gradient/
-      var defs = legend_graphs['legend_' + name].append("defs");
-
-      //Append a linearGradient element to the defs and give it a unique id
-      var linearGradient = defs.append("linearGradient")
-          .attr("id", "linear-gradient" + name);
-
-
-      //Append multiple color stops by using D3's data/enter step
-      linearGradient.selectAll("stop")
-          .data([
-              {offset: "0%", color: "#2c7bb6"},
-              {offset: "12.5%", color: "#00a6ca"},
-              {offset: "25%", color: "#00ccbc"},
-              {offset: "37.5%", color: "#90eb9d"},
-              {offset: "50%", color: "#ffff8c"},
-              {offset: "62.5%", color: "#f9d057"},
-              {offset: "75%", color: "#f29e2e"},
-              {offset: "87.5%", color: "#e76818"},
-              {offset: "100%", color: "#d7191c"}
-            ])
-          .enter().append("stop")
-          .attr("offset", function(d) { return d.offset; })
-          .attr("stop-color", function(d) { return d.color; });
-
-
-      //A color scale
-      var colorScale = d3.scaleLinear()
-          .range(["#2c7bb6", "#00a6ca","#00ccbc","#90eb9d","#ffff8c",
-                  "#f9d057","#f29e2e","#e76818","#d7191c"]);
-
-      //Append multiple color stops by using D3's data/enter step
-      linearGradient.selectAll("stop")
-          .data( colorScale.range())
-          .enter().append("stop")
-          .attr("offset", function(d,i) { return i/(colorScale.range().length-1); })
-          .attr("stop-color", function(d) { return d; });
-
-
-
-      //Draw the rectangle and fill with gradient
-      legend_graphs['legend_' + name].append("rect")
-          .attr("width", height)
-          .attr("height", legendHeight)
-          .attr("transform", "translate(" + "10" + ","+ height+") rotate(-90)")
-          .style("fill", "url(#linear-gradient" + name +  ")");
-
-      //Append title
-      // legend.append("text")
-      //   .attr("class", "legendTitle")
-      //   .attr("x", 100)
-      //   .attr("y", -1)
-      //   .style("text-anchor", "middle")
-      //   .style("fill", "#4F4F4F")
-      //   .text("Context");
-
-      legend_scales['legendScale' + name].domain([min,max])
-
-      var legend_axis_ref = legend_graphs['legend_' + name].append("g")
-        .attr("class", "x axis_legend")
-        .attr("transform", "translate(" + (-legendWidth/legendWidth+1) + "," + (legendHeight) + ")")
-        .call(legend_axes['legendAxis' + name].ticks(0).tickSize(0))
-        .select(".domain").remove();
-
-      // manually append min and max to legend
-      legend_graphs['legend_' + name]
-        .append("text")
-        .attr("class", "legend_max_txt" + name)
-        .attr("x", (main_graph_width - legend_start - 20))
-        .attr("y", 18)
-        .attr("font-family", "arial")
-        .attr("font-size", "10.25")
-        // .style("text-anchor", "end ")
-        .text(d3.format(".4f")(max));
-
-      legend_graphs['legend_' + name]
-        .append("text")
-        .attr("class", "legend_min_txt" + name)
-        .attr("x", legend_start - 10)
-        .attr("y", 18)
-        .attr("font-family", "arial")
-        .attr("font-size", "10.25")
-        // .style("text-anchor", "end ")
-        .text(d3.format(".4f")(min));
-
-      legend_graphs['legend_' + name]
-        .append("text")
-        .attr("class", "legend_mid_txt" + name)
-        .attr("x",(main_graph_width/2)-10)
-        .attr("y", 18)
-        .attr("font-family", "arial")
-        .attr("font-size", "10.25")
-        // .style("text-anchor", "end ")
-        .text(d3.format(".4f")((min+max)/2));
-
-      // d3.select(window).on('resize', resize);
+    
 
 
   })
