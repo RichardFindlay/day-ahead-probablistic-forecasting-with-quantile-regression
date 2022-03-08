@@ -1080,13 +1080,21 @@ defs.append("linearGradient")
                     return d;
                   })
 
+
                 d3.select("#legend" + name)
                 var mouse3 = d3.mouse(this);
+
+                if (width < 700) {
                  d3.select("#legend" + name)
                   .select(".mouse-text3" + name)
                   .attr("y", legend_loc)
-                  .attr("transform", "translate(" + (-30.5) + "," + (2.5) + ")")
-
+                  .attr("transform", "translate(" + (0) + "," + (-10) + ")")
+                } else {
+                 d3.select("#legend" + name)
+                  .select(".mouse-text3" + name)
+                  .attr("y", legend_loc)
+                  .attr("transform", "translate(" + (-30.5) + "," + (2.5) + ")")      
+                }
 
                 d3.select("#legend" + name)
                   .select(".mouse-line3" + name)
@@ -1214,7 +1222,7 @@ defs.append("linearGradient")
         // update svg input chart /////////////////////////////////////////////////////////
         current_chart = charts[idx]
 
-        width = parseInt(d3.select('#test').style('width'), 10) + 60
+          width = parseInt(d3.select('.slideshow-container').style('width'), 10) 
 
         height = 210
 
