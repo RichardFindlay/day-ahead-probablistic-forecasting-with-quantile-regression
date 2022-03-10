@@ -204,17 +204,23 @@ scale_dates['yscale'] = d3.scaleTime()
   .range([ height, 0 ])
 
 axes_dates['xAxis'] = d3.axisBottom().scale(scale_dates['xscale']).tickFormat(d3.timeFormat("")).ticks(d3.timeHour.every(24)).tickSize(16);
-axes_dates['yAxis'] = d3.axisLeft().scale(scale_dates['yscale']).tickFormat(d3.timeFormat("%a %d")).ticks(d3.timeHour.every(12)).tickSize(8); // Noon y-tick
+
 
 // axis for minor tick marks 
 // x_min_ticks = d3.scaleTime()
 //   .range([0, main_graph_width])
 
 axes_dates_min['xAxis'] = d3.axisBottom().scale(scale_dates['xscale']).ticks(96).tickFormat('').tickSize(3)
-axes_dates_min['yAxis']  = d3.axisLeft().scale(scale_dates['yscale']).ticks(24).tickFormat('').tickSize(3)
+axes_dates_min['yAxis']  = d3.axisLeft().scale(scale_dates['yscale']).ticks(12).tickFormat('').tickSize(3)
 
-axes_dates_noon['xAxis'] = d3.axisBottom().scale(scale_dates['xscale']).tickFormat(d3.timeFormat("%a %d")).ticks(d3.timeHour.every(12)).tickSize(8).tickPadding(8);
 
+if (width < 550) {  
+  axes_dates_noon['xAxis'] = d3.axisBottom().scale(scale_dates['xscale']).tickFormat(d3.timeFormat("%d/%m")).ticks(d3.timeHour.every(12)).tickSize(8).tickPadding(8);
+  axes_dates['yAxis'] = d3.axisLeft().scale(scale_dates['yscale']).tickFormat(d3.timeFormat("%d/%m")).ticks(d3.timeHour.every(12)).tickSize(8); // Noon y-tick
+} else {
+  axes_dates_noon['xAxis'] = d3.axisBottom().scale(scale_dates['xscale']).tickFormat(d3.timeFormat("%a %d")).ticks(d3.timeHour.every(12)).tickSize(8).tickPadding(8);
+  axes_dates['yAxis'] = d3.axisLeft().scale(scale_dates['yscale']).tickFormat(d3.timeFormat("%a %d")).ticks(d3.timeHour.every(12)).tickSize(8); // Noon y-tick
+}
 
 
 // get width of legend relative to screen size
@@ -386,12 +392,20 @@ heatmap_graphs_2['heatmap' + name] = heatmap_graphs['heatmap_' + name].selectAll
       .call(axes_dates_min['xAxis'])
       // .select(".domain").remove();
 
-
-    // tick value on every second value
     var ticks = d3.select("#my_dataviz" + name + "2").selectAll(".tick text");
     ticks.each(function(_,i){
-        if(i%2 == 0) d3.select(this).remove();
-    });
+        if(i%2== 1) d3.select(this).remove();
+    });             
+    
+    // if (width < 550) {  
+    // var ticks = d3.select("#my_dataviz" + name + "2").selectAll(".tick text");
+    // ticks.each(function(_,i){
+    //     if(i%2== 0) d3.select(this).remove();
+    // });             
+    // }
+
+
+
 
 
 // //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
