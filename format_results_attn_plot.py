@@ -55,8 +55,10 @@ final_params = {'group_index': group_index,
 				'output_time': output_time, 
 				'prediction': []}
 
-# conver to pandas
-df = pd.DataFrame(final_params)
+# convert to pandas df
+df = pd.DataFrame(dict([(keys ,pd.Series(values, dtype = 'object')) for keys, values in final_params.items()])) # set all as objects to avoid warning on empty cells
+
+# df = pd.DataFrame(final_params)
 df.to_clipboard()
 
 
