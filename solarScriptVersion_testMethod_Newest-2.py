@@ -27,14 +27,14 @@ import seaborn as sns
 import random
 
 ###########################################_____LOAD_PROCESSED_DATA_____############################################
-model_type ="solar"
+model_type ="wind"
 
 if model_type == 'wind':
-	dataset_name = 'train_set_V100.hdf5'
+	dataset_name = 'train_set_V100_wind.hdf5'
 elif model_type == 'demand':
 	dataset_name = 'dataset_V2_withtimefeatures_Demand.hdf5'
 elif model_type == 'solar':
-	dataset_name = 'dataset_solar_v25.hdf5'
+	dataset_name = 'dataset_solar_v30.hdf5'
 elif model_type == 'price':
 	dataset_name = 'dataset_V1_DAprice.hdf5'
 
@@ -61,7 +61,7 @@ x_len = f['train_set']['X1_train'].shape[0]
 y_len = f['train_set']['y_train'].shape[0]
 print('size parameters loaded')
 
-input_seq_size = 672
+input_seq_size = 336
 output_seq_size = 48
 
 print(x_len)
@@ -70,7 +70,7 @@ print(y_len)
 
 ###########################################_____DATA_GENERATOR_____#################################################
 
-params = {'batch_size': 8,
+params = {'batch_size': 16,
 		'shuffle': False } 
 
 class DataGenerator(tensorflow.keras.utils.Sequence):
@@ -107,12 +107,13 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 
 		y_trues = [y_train for i in quantiles]    
 
-		y_trues.extend([[], []]) 
+		y_trues.extend([[]]) 
 
-		# print(y_trues)
+		# print(len(y_trues))
+		# print(y_trues[-1])        
 		# sys.exit()        
 
-		return (X_train1, X_train2, X_train3, X_train4, s0, c0), tuple(y_trues) # pass empty training outputs to extract extract attentions
+		return (X_train1, X_train2, X_train3, X_train4, s0, c0), (y_trues) # pass empty training outputs to extract extract attentions
 
 	def on_epoch_end(self):
 		# set length of indexes for each epoch
@@ -170,8 +171,8 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
         # convert to sequence data
 		X_train1, X_train2, X_train3, X_train4, y_train = self.to_sequence(X_train1, X_train2, X_train3, X_train4, y_train)
 
-		s0 = np.zeros((self.batch_size, n_s*2))
-		c0 = np.zeros((self.batch_size, n_s*2))
+		s0 = np.zeros((self.batch_size, 32))
+		c0 = np.zeros((self.batch_size, 32))
 
 		# print(X_train1.shape)
 		# print(y_train.shape)
@@ -252,21 +253,29 @@ class attention(tf.keras.layers.Layer):
 
 		input_dim = int(input_shape[-1])
 
-		self.attention_score_vec = Dense(input_dim, use_bias=False, name='attention_score_vec')
-		self.h_t = Lambda(lambda x: x[:, -1, :], output_shape=(input_dim,), name='last_hidden_state')
+		self.attention_score_vec = Dense(64, name='attention_score_vec')
+		self.h_t = Dense(64, name='ht')
+		# self.h_t = Lambda(lambda x: x[:, -1, :], output_shape=(input_dim,), name='last_hidden_state')
 		self.attention_score = Dot(axes=[1, 2], name='attention_score')
 		self.attention_weight = Activation('softmax', name='attention_weight')
 		self.context_vector = Dot(axes=[1, 1], name='context_vector')
 		# self.attention_output = concatenate(name='attention_output')
-		self.attention_vector = Dense(self.hidden_units, use_bias=False, activation='tanh', name='attention_vector')
+		self.attention_vector = Dense(self.hidden_units, activation='tanh', name='attention_vector')
 
-	def call(self, enc_output, h_state, c_state):
+		super(attention, self).build(input_shape)
+
+	def call(self, enc_output, enc_out, h_state, c_state):
+
 
 		score_first_part = self.attention_score_vec(enc_output)
         #            score_first_part           dot        last_hidden_state     => attention_weights
         # (batch_size, time_steps, hidden_size) dot   (batch_size, hidden_size)  => (batch_size, time_steps)
-		h_t = self.h_t(enc_output)
+		# h_t = self.h_t(enc_output)
+		h_t = concatenate([h_state, enc_out[:,0,:]])
+		h_t = self.h_t(h_t)
+
 		score = self.attention_score([h_t, score_first_part])
+
 		attention_weights = self.attention_weight(score)
         # (batch_size, time_steps, hidden_size) dot (batch_size, time_steps) => (batch_size, hidden_size)
 		context_vector = self.context_vector([enc_output, attention_weights])
@@ -295,8 +304,8 @@ class attention(tf.keras.layers.Layer):
 
 
 # instantiate attention layers
-temporal_attn = attention(n_s, name="temporal_attention")
-spatial_attn = attention(n_s, name="spatial_attention")
+# temporal_attn = attention(n_s, name="temporal_attention")
+# spatial_attn = attention(n_s, name="spatial_attention")
 
 
 def cnn_encoder(ccn_input):
@@ -315,7 +324,7 @@ def cnn_encoder(ccn_input):
 
 	ccn_enc_output = K.mean(ccn_enc_output, axis=1) 
 
-	print(ccn_enc_output.shape)
+	# print(ccn_enc_output.shape)
     
 	return ccn_enc_output
 
@@ -327,14 +336,17 @@ def encoder(input, times_in):
 
 	enc_output = K.mean(input, axis=(2,3))
 
+	# concat input time features with input
+	enc_output = concatenate([enc_output, times_in], axis=-1)
+
 	enc_output, forward_h, forward_c, backward_h, backward_c = lstm_encoder(enc_output)
 	# enc_output, enc_h, enc_s = lstm_encoder(enc_output)
 
 	enc_h = concatenate([forward_h, backward_h], axis=-1)
 	enc_s = concatenate([forward_c, backward_c], axis=-1)
 
-	# concat input time features with input
-	enc_output = concatenate([enc_output, times_in], axis=-1)
+	# # concat input time features with input
+	# enc_output = concatenate([enc_output, times_in], axis=-1)
 
 	return enc_output, enc_h, enc_s
 
@@ -355,6 +367,8 @@ from keras.backend import sigmoid
 
 def swish(x, beta = 1):
     return (x * sigmoid(beta * x))
+
+
 
 # Getting the Custom object and updating them
 from keras.utils.generic_utils import get_custom_objects
@@ -389,8 +403,8 @@ x_input = Input(shape=(Tx, height, width, channels))
 times_in = Input(shape=(Tx, times_in_dim))
 times_out = Input(shape=(Ty, times_out_dim))
 out_nwp = Input(shape=(Ty, channels-1))
-s_state0 = Input(shape=(n_s*2,))
-c_state0 = Input(shape=(n_s*2,))
+s_state0 = Input(shape=(32,))
+c_state0 = Input(shape=(32,))
 dec_inp = Input(shape=(None, 1))
 
 s_state = s_state0
@@ -401,14 +415,26 @@ all_predictions = []
 all_temp_attn_weights = []
 all_spat_attn_weights = []
 
+
+qunatile_predictions = []
+
+temporal_attns = [] 
+spatial_attns = [] 
+
+decoders_quantiles = {}
+temporal_attn_quantiles = {}
+
+
+# for q in quantiles:
+
 # call CCN_encoder function
 ccn_enc_output = cnn_encoder(x_input)
 
 # call LSTM_encoder function
 lstm_enc_output, enc_s_state, enc_c_state = encoder(x_input, times_in)
 
-s_state_enc = enc_s_state
-c_state_enc = enc_c_state
+# s_state_enc = enc_s_state
+# c_state_enc = enc_c_state
 
 # y_prev = K.mean(x_input, axis=(2,3))
 # y_prev = y_prev[:, -49, 0:1]
@@ -447,72 +473,102 @@ c_state_enc = enc_c_state
 # decoder_input = concatenate([decoder_input, times_out_single], axis=-1)
 
 
-qunatile_predictions = []
+	# qunatile_predictions = []
 
-temporal_attns = [] 
-spatial_attns = [] 
+	# temporal_attns = [] 
+	# spatial_attns = [] 
+
+	# decoders_quantiles = {}
+	# temporal_attn_quantiles = {}
+
 
 # prediction = lstm_enc_output[:,-1:,:]
 
 # call decoder
 for q in quantiles: 
+  
 	ts_predictions = []
+	temp_attns = []
 
 	intial_in = K.mean(x_input, axis=(2,3))
-	prev_prediction = intial_in[:,-1:,0]
+	prev_prediction = intial_in[:,-1:,0:1]
 
-	decoder = LSTM(n_s*2, return_sequences = False, return_state = True, name=f'decoder_q_{q}')
+	decoder = LSTM(32, return_sequences = False, return_state = True, name=f'decoder_q_{q}')
+	# decoder_2 = LSTM(32, return_sequences = False, return_state = True, name=f'decoder2_q_{q}')
 	spatial_attention = attention(n_s, name=f"spatial_attention_q_{q}")
 	temporal_attention = attention(n_s, name=f"temporal_attention_q_{q}")
 
+	output_1 = Dense(32, activation="swish", name=f'dense1_q_{q}')
+	output_2 = Dense(1, name=f'dense3_q_{q}')
+	final_act = Activation('relu', name=f'swish_act_q_{q}')
+
+    # concatenation layers
+
+	s_state = s_state0
+	c_state = c_state0
+
 	for ts in range(Ty):
 
+		# current_nwp_data = Lambda(lambda x: x[:,ts:ts+1,:], name=f"current_nwp_q_{q}_{ts}")(out_nwp)
+		# current_times_out = Lambda(lambda x: x[:,ts:ts+1,:], name=f"current_times_out_q_{q}_{ts}")(times_out)
+
+		enc_out = concatenate([out_nwp[:,ts:ts+1,:], times_out[:,ts:ts+1,:]], axis=-1, name=f'concat1_q_{q}_{ts}')        
+
 		# get context matrix (temporal)
-		# attn_weights_temp, context_temp = attention(n_s, name=f"temporal_attention_q_{q}_{ts}")(lstm_enc_output, s_state, c_state)
-		attn_weights_temp, context_temp = temporal_attention(lstm_enc_output, s_state, c_state)
+		# attn_weights_temp, context_temp = attention(n_s, name=f"temporal_attention_q_{q}_{ts}")(lstm_enc_output, current_times_out, s_state, c_state)
+		attn_weights_temp, context_temp = temporal_attention(lstm_enc_output, enc_out, s_state, c_state)
 
 		# get context matrix (spatial)
 		# attn_weights_spat, context_spat = attention(n_s, name=f"spatial_attention_q_{q}_{ts}")(ccn_enc_output, s_state, c_state)
-		attn_weights_spat, context_spat = spatial_attention(ccn_enc_output, s_state, c_state)
+		attn_weights_spat, context_spat = spatial_attention(ccn_enc_output, enc_out, s_state, c_state)
 
 		# combine spatial and temporal context
-		context = concatenate([context_temp, context_spat], axis=-1) 
+		context = concatenate([context_temp, context_spat], axis=-1, name=f'concat1.5_q_{q}_{ts}') 
 		# context = context_temp
 
-		# print(context.shape)
+		if ts > 0:
+			decoder_input = concatenate([out_nwp[:,ts-1:ts,:], times_out[:,ts-1:ts,:]], axis=-1, name=f'concat2_q_{q}_{ts}')
+		else:
+			decoder_input = concatenate([intial_in[:,-1:,1:], times_in[:,-1:,:]], axis=-1, name=f'concat3_q_{q}_{ts}')  
 
-		decoder_input = concatenate([out_nwp[:, ts:ts+1, :], times_out[:, ts:ts+1 ,:]], axis=-1)
-		decoder_input = concatenate([decoder_input, context], axis=-1) 
+		decoder_input = concatenate([prev_prediction, decoder_input], axis=-1, name=f'concat4_q_{q}_{ts}')
+		# decoder_input = concatenate([decoder_input, context], axis=-1, name=f"concat2_q_{q}_{ts}") 
 
 		# if ts > 0:
-		decoder_input = concatenate([decoder_input, K.expand_dims(prev_prediction, axis=1)], axis=-1)  
-
+		# decoder_input = concatenate([decoder_input, K.expand_dims(prev_prediction, axis=1)], axis=-1, name=f"concat3_q_{q}_{ts}")  
 
 		dec_output, s_state, c_state = decoder(decoder_input, initial_state = [s_state, c_state])
 		# dec_output, s_state, c_state = state = LSTM(n_s * 2, return_sequences = False, return_state = True, name=f'decoder_q_{q}_{ts}')(decoder_input, initial_state = [s_state, c_state])
 		# dec_output, _ , _ = state = LSTM(n_s, return_sequences = True, return_state = True, name=f'decoder_q_{q}')(decoder_input)
 
-		# predict_1 = Dense(16, activation="relu", name=f'conv1_q_{q}')(dec_output)
 		# predict_2 = Conv1D(16, kernel_size=1, strides=1, padding="same", activation="swish", name=f'conv2_q_{q}')(predict_1)
-		# prediction = concatenate([out_nwp[:, ts:ts+1, :], times_out[:, ts:ts+1 ,:]], axis=-1)
-		# prediction = concatenate([K.expand_dims(dec_output, axis=1), t], axis=-1)
-		# prediction = Dense(64, activation="relu", name=f'dense1_q_{q}_{ts}')(dec_output) 
-		# prediction = Dense(64, activation="relu", name=f'dense2_q_{q}_{ts}')(prediction)
-		output = Dense(32, activation="relu", name=f'dense1_q_{q}_{ts}')(dec_output)
-		# output = Dense(8, activation="relu", name=f'dense2_q_{q}_{ts}')(output)
-		output = Dense(16, activation="relu", name=f'dense2_q_{q}_{ts}')(output)
-		output = Dense(1, activation="linear", name=f'dense3_q_{q}_{ts}')(output)
+		prediction = concatenate([context, K.expand_dims(dec_output,axis=1)], axis=-1, name=f'concat5_q_{q}_{ts}')
+
+		# output = Dense(32, activation="linear", name=f'dense1_q_{q}_{ts}')(prediction)
+		output = output_1(prediction)
+		# output = Dropout(0.5)(output)
+
+		# output = Dense(1, name=f'dense3_q_{q}_{ts}')(output)
+		output = output_2(output)
+
+		# output = Activation('relu', name=f'swish_act_q_{q}_{ts}')(output)
+		# output = final_act(output)
+
 		prev_prediction = output
 		ts_predictions.append(output)
-
+		temp_attns.append(attn_weights_temp)
     
 	ts_predictions_total = concatenate(ts_predictions, axis = 1)
+	temp_attns_total = concatenate(temp_attns, axis = -1)
 	# ts_predictions_total = K.expand_dims(ts_predictions_total, axis=-1)
 	qunatile_predictions.append(ts_predictions_total)
-
+	# K.clear_session()
 # combined_predictions  = concatenate(combined_predictions, axis=-1)  
 
-qunatile_predictions.extend([attn_weights_temp, attn_weights_spat])
+qunatile_predictions.extend([temp_attns_total])
+
+print(len(qunatile_predictions))
+# sys.exit()
 
 # predictions = K.expand_dims(predictions , axis=-1)
 
@@ -674,14 +730,13 @@ def loss_func(q):
 
 func_test = lambda y,f: defined_loss(q,y,f) 
 
-a = lambda y,f: defined_loss(0.05,y,f) 
+a = lambda y,f: defined_loss(0.1,y,f)
 b = lambda y,f: defined_loss(0.5,y,f) 
-c = lambda y,f: defined_loss(0.95,y,f)
-
+c = lambda y,f: defined_loss(0.9,y,f)
 
 q_losses = [a, b, c]
 
-q_losses.extend([None, None])
+q_losses.append(None)
 print(q_losses)
 print(func_test)
 
@@ -691,15 +746,15 @@ q = 'all'
 # for q in quantiles:
 # 	print(q)
 	# model = solarGenation_Model()
-model.compile(loss = q_losses , optimizer= optimizer, metrics = ['mae'])
+model.compile(loss = q_losses, optimizer= optimizer)
 # model.compile(loss = [lambda y,f: defined_loss(q,y,f), None, None], optimizer= optimizer, metrics = ['mae'])
 print(model.summary())
 
-train = model.fit(training_generator, use_multiprocessing=True, workers=4, epochs = 5)
+train = model.fit(training_generator, epochs = 5)
 
 os.mkdir(f'/content/drive/My Drive/{model_type}Models/q_{q}')
 # model_freeze.save_weights('/content/drive/My Drive/solarGeneration_forecast_weights_freezed' + '_Q_%s' %(q) + '.h5')
-model.save(f'/content/drive/My Drive/{model_type}Models/q_{q}/{model_type}Generation_forecast_MainModel' + '_Q_%s' %(q) + '.h5')
+model.save(f'/content/drive/My Drive/{model_type}Models/q_{q}/{model_type}Generation_forecast_MainModel_Q_{q}.h5')
 # model.save_weights('/content/drive/My Drive/solarGeneration_forecast_weights_test2' + '_Q_%s' %(q) + '.h5')
 
 # save some additional models for inference
@@ -711,9 +766,9 @@ print('predicting')
 predictions = model.predict(training_generator)
 # predictions = predictions[0]
 
-with open(f"/content/drive/My Drive//windModels/predictions_{q}.pkl", "wb") as y_hat:
-    dump(predictions, y_hat)
-K.clear_session()
+# with open(f"/content/drive/My Drive//windModels/predictions_{q}.pkl", "wb") as y_hat:
+#     dump(predictions, y_hat)
+# K.clear_session()
 
 
 print('predicting')
@@ -729,8 +784,6 @@ plt.plot(predictions3[idx:idx+7,:].flatten(), label="0.9")
 # plt.plot(y[idx:idx+7,:,0].flatten(), label="actual")
 plt.legend()
 plt.show()
-
-
 
 
 sys.exit()
