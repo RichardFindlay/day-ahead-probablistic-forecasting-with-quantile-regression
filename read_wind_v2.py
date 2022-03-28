@@ -39,7 +39,7 @@ import h5py
 
 
 
-
+quantiles = [0.1, 0.5, 0.9]
 
 
 def inference_model(quantile):
@@ -59,8 +59,8 @@ def inference_model(quantile):
 	times_out_test = Input(shape=(1, times_out_dim))
 
 	# context and previous output
-	attn_weights_temp_test, context_temp_test = model.get_layer('temporal_attention')(lstm_enc_output_test, s_state0, c_state0)
-	attn_weights_spat_test, context_spat_test = model.get_layer('spatial_attention')(ccn_enc_output_test, s_state0, c_state0)
+	attn_weights_temp_test, context_temp_test = model.get_layer(f'temporal_attention_q_{quantile}')(lstm_enc_output_test, s_state0, c_state0)
+	attn_weights_spat_test, context_spat_test = model.get_layer(f'spatial_attention_q_{qunatile}')(ccn_enc_output_test, s_state0, c_state0)
 
 	# context & previous output combine
 	context_test = concatenate([context_spat_test, context_temp_test], axis=-1) 
@@ -73,21 +73,10 @@ def inference_model(quantile):
 	dec_input_concat_test = concatenate([dec_input_concat_test, dec_input_test], axis=-1)
 
 	# Decoder inference
-	# if idx == 1:
-	# 	dec_output, s_state, c_state = model.get_layer('lstm_1')(dec_input_concat_test_int, initial_state=[s_state0, c_state0])
-	# else:   
-	# 	dec_output, s_state, c_state = model.get_layer(f'lstm_{idx}')(dec_input_concat_test, initial_state=[s_state0, c_state0])
+	dec_output, s_state, c_state = model.get_layer(f'decoder_q_{qunatile}')(dec_input_concat_test, initial_state=[s_state0, c_state0])
 
-	dec_output, s_state, c_state = model.get_layer('lstm_1')(dec_input_concat_test, initial_state=[s_state0, c_state0])
-
-	# pred_test = model.get_layer(f'1conv_{idx-1}')(dec_output)
-	# pred_test = model.get_layer(f'2conv_{idx-1}')(pred_test)
-	# pred_test = model.get_layer(f'3conv_{idx-1}')(pred_test)
-
-
-	pred_test = model.get_layer('conv1d')(dec_output)
-	pred_test = model.get_layer('conv1d_1')(pred_test)
-	pred_test = model.get_layer('conv1d_2')(pred_test)
+	# final dense layer
+	pred_test = model.get_layer(f'dense1_q_{qunatile}')(dec_output)
 
 	# Inference Model
 	deoceder_test_model = Model(inputs=[dec_input_test, times_out_test, lstm_enc_output_test, ccn_enc_output_test, s_state0, c_state0], outputs=[pred_test, s_state, c_state, attn_weights_temp_test, attn_weights_spat_test])  
@@ -95,6 +84,7 @@ def inference_model(quantile):
 	return deoceder_test_model
 
 
+# instantiate model for each quantile
 
 
 
