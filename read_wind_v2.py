@@ -157,13 +157,12 @@ c0 = np.zeros((1, n_s))
 
 
 
-
 # function for decoder model
 def inference_dec_model(quantile):
 
 	# Encoder outputs for setup
 	ccn_enc_output_test = Input(shape=(320, 128))
-	lstm_enc_output_test = Input(shape=(Tx, n_s*2)) #+ times_in_dim
+	lstm_enc_output_test = Input(shape=(Tx, n_s*4)) #+ times_in_dim
 
 	# Decoder Input
 	times_in = Input(shape=(1, times_in_dim))
@@ -180,9 +179,9 @@ def inference_dec_model(quantile):
 	attn_weights_spat_test, context_spat_test = model.get_layer(f'spatial_attention_q_{quantile}')(ccn_enc_output_test, enc_out, s_state0, c_state0)
 
 	# context & previous output combine
-	context = concatenate([context_spat_test, context_temp_test], axis=-1) 
+	context = concatenate([context_temp_test, context_spat_test], axis=-1) 
 
-	decoder_input = concatenate([out_nwp, times_out])
+	# decoder_input = concatenate([out_nwp, times_out])
 
 	# Decoder inference
 	dec_output, s_state, c_state = model.get_layer(f'decoder_q_{quantile}')(decoder_input, initial_state=[s_state0, c_state0])
@@ -199,28 +198,42 @@ def inference_dec_model(quantile):
 	     
 	return deoceder_test_model
 
-
+# dictionary to store decoder models
 decoder_models = {}
 
 # instantiate model for each quantile
 for q in quantiles:
 	decoder_models[f'{q}'] = inference_dec_model(q)
 
-# set hidden states to zero
-s_state, c_state = s0, c0
+# store predictions
+predictions = {}
+
+# np.zeros((x1.shape[0], Ty, 1))
+
+
 
 # loop through each sample, passing individually to model
-for idx in range(x1.shape[0]):
+for q in quantiles:
+	print(q)
 
-	# create final inference model
-	lstm_enc_output, enc_s_state, enc_c_state = temporal_enc(x1, x2)
-	ccn_enc_output = spatial_enc(x1)
+	# set hidden states to zero
+	# s_state, c_state = s0, c0
 
-	for q in qunatiles:
+	total_pred = np.empty((x1.shape[0], Ty, 1))
 
-		decoder = decoder_models[f'{q}']
+	decoder = decoder_models[f'{q}']
 
-		intial_in = K.mean(x1[idx:idx+1], axis=(2,3))
+	for idx in range(x1.shape[0]): # loop through each sample, to keep track of hidden states
+
+		outputs = []
+
+		s_state, c_state = s0, c0
+
+		# create final inference model
+		lstm_enc_output, enc_s_state, enc_c_state = temporal_enc([x1[idx:idx+1], x2[idx:idx+1]])
+		ccn_enc_output = spatial_enc(x1[idx:idx+1])
+
+		intial_in = np.average(x1[idx:idx+1], axis=(2,3))
 
 		for ts in range(Ty):
 
@@ -230,11 +243,27 @@ for idx in range(x1.shape[0]):
 			else:
 				decoder_input = concatenate([intial_in[:,-1:,1:], x2[idx:idx+1,-1:,:]], axis=-1)  
 
-			pred, s_state, c_state, attn_weights_temp_test, attn_weights_spat_test = decoder(x2[idx:idx+1,Ty:Ty+1,:], x3[idx:idx+1,Ty:Ty+1,:], x4[idx:idx+1,Ty:Ty+1,:], decoder_input, ccn_enc_output, lstm_enc_output, s_state, c_state)
 
-			print(pred.shape)
+			pred, s_state, c_state, attn_weights_temp_test, attn_weights_spat_test = decoder([x2[idx:idx+1,ts:ts+1,:], x3[idx:idx+1,ts:ts+1,:], x4[idx:idx+1,ts:ts+1,:], decoder_input, ccn_enc_output, lstm_enc_output, s_state, c_state])
+
+			outputs.append(pred)
+
+		combined_outputs = np.concatenate(outputs, axis=1)
+
+		total_pred[idx, : , :] = combined_outputs
+
+	predictions[f'{q}'] = total_pred
 
 
+plot_ref = 0
+
+# plot predictions
+for idx, (key, values) in enumerate(predictions.items()):
+	plt.plot(values[plot_ref:plot_ref+7,:].flatten(), label=f"prediction_{key}")
+
+plt.plot(y[plot_ref:plot_ref+7,:,0].flatten(), label="actual")
+plt.legend()
+plt.show()
 
 
 
