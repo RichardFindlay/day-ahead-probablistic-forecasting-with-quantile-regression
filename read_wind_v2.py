@@ -39,6 +39,10 @@ import h5py
 
 model_type ="wind"
 
+plot_temporal_attention = True
+plot_spatial_attention = True
+
+
 if model_type == 'wind':
 	dataset_name = 'train_set_V100_wind.hdf5'
 elif model_type == 'demand':
@@ -64,7 +68,7 @@ times_in_dim = times_in.shape[-1]
 times_out_dim = times_out.shape[-1]
 
 
-quantiles = [0.1, 0.5, 0.9]
+quantiles = [0.01, 0.5, 0.99]
 
 Tx = 336
 Ty = 48
@@ -208,8 +212,6 @@ for q in quantiles:
 # store predictions
 predictions = {}
 
-# np.zeros((x1.shape[0], Ty, 1))
-
 
 
 # loop through each sample, passing individually to model
@@ -217,17 +219,21 @@ for q in quantiles:
 	print(q)
 
 	# set hidden states to zero
-	# s_state, c_state = s0, c0
+	s_state, c_state = s0, c0
 
+	# empty arrays to store all results
 	total_pred = np.empty((x1.shape[0], Ty, 1))
+	total_spat = np.empty((x1.shape[0], 320, Ty)) # 320 is the fixed spatial attention res
+	total_temp = np.empty((x1.shape[0], Tx, Ty))
 
 	decoder = decoder_models[f'{q}']
 
 	for idx in range(x1.shape[0]): # loop through each sample, to keep track of hidden states
 
+		# create empty results for results per sample
 		outputs = []
-
-		s_state, c_state = s0, c0
+		spatial_attns = []
+		temporal_attns = []
 
 		# create final inference model
 		lstm_enc_output, enc_s_state, enc_c_state = temporal_enc([x1[idx:idx+1], x2[idx:idx+1]])
@@ -247,15 +253,22 @@ for q in quantiles:
 			pred, s_state, c_state, attn_weights_temp_test, attn_weights_spat_test = decoder([x2[idx:idx+1,ts:ts+1,:], x3[idx:idx+1,ts:ts+1,:], x4[idx:idx+1,ts:ts+1,:], decoder_input, ccn_enc_output, lstm_enc_output, s_state, c_state])
 
 			outputs.append(pred)
+			spatial_attns.append(attn_weights_spat_test)
+			temporal_attns.append(attn_weights_temp_test)
 
 		combined_outputs = np.concatenate(outputs, axis=1)
+		combined_spat_attn = np.concatenate(spatial_attns, axis=-1)
+		combined_temp_attn = np.concatenate(temporal_attns, axis=-1)
 
 		total_pred[idx, : , :] = combined_outputs
+		total_spat[idx, : , :] = combined_spat_attn
+		total_temp[idx, : , :] = combined_temp_attn
 
 	predictions[f'{q}'] = total_pred
 
 
 plot_ref = 0
+idx = 0
 
 # plot predictions
 for idx, (key, values) in enumerate(predictions.items()):
@@ -266,6 +279,117 @@ plt.legend()
 plt.show()
 
 
+# plot temporal attention (quantile 0.5)
+att_w_temp = np.transpose(total_temp[idx])
+x = np.average(x1, axis=(2,3))[idx, :]
+y_attn = y[idx, :, 0]
+y_hat = predictions['0.5'] [idx, :]
+
+#make attention plotting function
+def temporal_attention_graph(x, y, att_w_temp):
+
+	fig = plt.figure(figsize=(24, 8))
+	gs = gridspec.GridSpec(ncols=90, nrows=100)
+
+	upper_axis = fig.add_subplot(gs[0:20, 10:75])
+	left_axis = fig.add_subplot(gs[25:, 0:8])
+	atten_axis = fig.add_subplot(gs[25:, 10:])
+
+	upper_axis.plot(x)
+	upper_axis.set_xlim([0, Tx])
+	upper_axis.set_ylim([0, 1])
+	upper_axis.set_xticks(range(0, Tx))
+	upper_axis.set_xticklabels(range(0, Tx))
+
+	left_axis.plot(y, range(0,Ty), label='Prediction')
+	left_axis.plot(y_hat, range(0,Ty), label='True')
+	left_axis.set_ylim([0, Ty])
+	left_axis.set_yticks(range(0, Ty, 6))
+	left_axis.set_yticklabels(range(0, Ty, 6))
+	left_axis.invert_yaxis()
+
+	sns.heatmap(att_w_temp, cmap='flare', ax = atten_axis, vmin=0, vmax=0.01)
+	atten_axis.set_xticks(range(0, Tx))
+	atten_axis.set_xticklabels(range(0, Tx))
+	atten_axis.set_yticks(range(0, Ty, 4))
+	atten_axis.set_yticklabels(range(0, Ty, 4))
+
+	plt.show()
+
+
+if plot_temporal_attention is True:
+	temporal_attention_graph(x, y_attn, att_w_temp)
+
+
+# transpose spatial attention results
+att_w_spat = np.transpose(total_spat[idx])
+
+
+# plot spatial attention
+def plot_spatial_predictions(spatial_data, title, height_scale, width_scale, frame_num):
+
+	fig = plt.figure(figsize=[8,10])  # a new figure window
+	ax_set = fig.add_subplot(1, 1, 1)
+
+	# create baseline map
+	# spatial data on UK basemap
+	df = pd.DataFrame({
+		'LAT': [49.78, 61.03],
+		'LON': [-11.95, 1.55],
+	})
+
+	geo_df = geopandas.GeoDataFrame(df, crs = {'init': 'epsg:4326'}, 
+			geometry=geopandas.points_from_xy(df.LON, df.LAT)).to_crs(epsg=3857)
+
+	ax = geo_df.plot(
+		figsize= (8,10),
+		alpha = 0,
+		ax=ax_set,
+	)
+
+	plt.title(title)
+	ax.set_axis_off()
+
+	# add basemap
+	url = 'http://tile.stamen.com/terrain/{z}/{x}/{y}.png'
+	zoom = 10
+	xmin, xmax, ymin, ymax = ax.axis()
+	basemap, extent = ctx.bounds2img(xmin, ymin, xmax, ymax, zoom=zoom, url=url)
+	ax.imshow(basemap, extent=extent, interpolation='gaussian')
+	attn_over = np.resize(spatial_data[0], (height_scale, width_scale))
+	
+	gb_shape = geopandas.read_file("./Data/shapefiles/GBR_adm/GBR_adm0.shp").to_crs(epsg=3857)
+	irl_shape = geopandas.read_file("./Data/shapefiles/IRL_adm/IRL_adm0.shp").to_crs(epsg=3857)
+	gb_shape.boundary.plot(ax=ax, edgecolor="black", linewidth=0.5, alpha=0.4)
+	irl_shape.boundary.plot(ax=ax, edgecolor="black", linewidth=0.5, alpha=0.4)
+	overlay = ax.imshow(attn_over, cmap='viridis', alpha=0.5, extent=extent)
+	# ax.axis((xmin, xmax, ymin, ymax))
+	txt  = fig.text(.5, 0.09, '', ha='center')
+
+	
+	def update(i):
+		spatial_over = np.resize(spatial_data[i], (height_scale, width_scale))
+		# overlay = ax.imshow(spatial_over, cmap='viridis', alpha=0.5, extent=extent)
+		overlay.set_data(spatial_over)
+		txt.set_text(f"Timestep: {i}")
+		# plt.cla()
+
+		return [overlay, txt]
+
+
+	animation_ = FuncAnimation(fig, update, frames=frame_num, blit=False, repeat=False)
+	plt.show(block=True)	
+	# animation_.save(f'{title}_animation.gif', writer='imagemagick')
+
+
+
+if plot_spatial_attention is True:
+	plot_spatial_predictions(att_w_spat, 'Spatial Context', 16, 20, 48)
+
+
+
+
+# save results
 
 
 
