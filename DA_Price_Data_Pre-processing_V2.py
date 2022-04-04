@@ -9,7 +9,6 @@ cal = UnitedKingdom()
 
 
 
-
 # load input data
 windGen_data = pd.read_csv('./Data/wind/Raw_Data/HH_windGen_V4.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
 solarGen_data = pd.read_csv('./Data/solar/Raw_Data/HH_PVGeneration_v3.csv', parse_dates=True, index_col=0, header=0, dayfirst=True)
@@ -52,6 +51,11 @@ mask_all = wind_mask | solar_mask | demand_mask | price_mask
 feature_array = feature_array[~mask_all]
 
 price_data = price_data[~mask_all]
+
+# combine price data to other features for complete feature array
+feature_array = [feature_array, price_data]
+feature_array = np.concatenate(feature_array, axis=-1)
+
 
 # time refs
 time_refs = windGen_data.index
@@ -127,11 +131,13 @@ dataset = {
 	'train_set' : {
 		'X1_train': feature_array[:-test_split_seq],
 		'X2_train': time_features[:-test_split_seq],
+		'X3_train': time_features[:-test_split_seq],
 		'y_train': price_data[:-test_split_seq] 
 		},
 	'test_set' : {
 		'X1_test': feature_array[-test_split_seq:],
-		'X2_test': time_features[:-test_split_seq],
+		'X2_test': time_features[-test_split_seq:],
+		'X3_train': time_features[-test_split_seq:],
 		'y_test': price_data[-test_split_seq:] 
 		}
 	}
@@ -150,12 +156,12 @@ print(*[f'{key}: {dataset["test_set"][key].shape}' for key in dataset['test_set'
 
 
 # save dataset
-with open("./Data/price/Processed_Data/time_refs_V1_DAprice.pkl", "wb") as times:
+with open("./Data/price/Processed_Data/time_refs_V2_DAprice.pkl", "wb") as times:
 	dump(time_refs, times)
 
 
 # save training set as dictionary (h5py dump)
-f = h5py.File('./Data/price/Processed_Data/dataset_V1_DAprice.hdf5', 'w')
+f = h5py.File('./Data/price/Processed_Data/dataset_V2_DAprice.hdf5', 'w')
 
 for group_name in dataset:
 	group = f.create_group(group_name)
