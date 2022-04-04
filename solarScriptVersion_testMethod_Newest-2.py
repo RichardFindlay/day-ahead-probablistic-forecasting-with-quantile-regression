@@ -27,7 +27,7 @@ import seaborn as sns
 import random
 
 ###########################################_____LOAD_PROCESSED_DATA_____############################################
-model_type ="wind"
+model_type ="price"
 
 if model_type == 'wind':
 	dataset_name = 'train_set_V100_wind.hdf5'
@@ -36,11 +36,11 @@ elif model_type == 'demand':
 elif model_type == 'solar':
 	dataset_name = 'dataset_solar_v30.hdf5'
 elif model_type == 'price':
-	dataset_name = 'dataset_V1_DAprice.hdf5'
+	dataset_name = 'dataset_V2_DAprice.hdf5'
 
 # quantiles = [0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]
 
-quantiles = [0.1, 0.5, 0.9]
+quantiles = [0.01, 0.5, 0.99]
 
 # load training data dictionary
 # train_set_load = open("/content/drive/My Drive/Processed_Data/train_set_V6_withtimefeatures_120hrinput_.pkl", "rb") 
@@ -147,7 +147,7 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 			output_start += 1
             
 		seqX1, seqX2, seqX3, seqX4, seqY = np.array(seqX1), np.array(seqX2), np.array(seqX3), np.array(seqX4), np.array(seqY)
-
+		
 		return seqX1, seqX2, seqX3, seqX4, seqY
 
 	def __data_generation(self, input_indexes, output_indexes):
@@ -188,7 +188,12 @@ training_generator = DataGenerator(dataset_name = dataset_name, x_length = x_len
 # cpature some usful dimensions
 Tx = input_seq_size
 Ty = output_seq_size
-height, width, channels = features.shape[0], features.shape[1], features.shape[2]
+
+if model_type != "price":
+	height, width, channels = features.shape[0], features.shape[1], features.shape[2]
+else:
+	channels = features.shape[-1]
+
 times_in_dim = times_in.shape[-1]
 times_out_dim = times_out.shape[-1]
 n_s = 32
@@ -325,16 +330,20 @@ def cnn_encoder(ccn_input):
 	ccn_enc_output = K.mean(ccn_enc_output, axis=1) 
 
 	# print(ccn_enc_output.shape)
+
     
 	return ccn_enc_output
 
 # encoder layers
-lstm_encoder = Bidirectional(LSTM(n_s, return_sequences = True, return_state = True))
+lstm_encoder = Bidirectional(LSTM(n_s*2, return_sequences = True, return_state = True))
 # lstm_encoder = LSTM(n_s, return_sequences = True, return_state = True)
 
 def encoder(input, times_in):
-
-	enc_output = K.mean(input, axis=(2,3))
+    
+	if model_type != "price":
+		enc_output = K.mean(input, axis=(2,3))
+	else:
+		enc_output = input       
 
 	# concat input time features with input
 	enc_output = concatenate([enc_output, times_in], axis=-1)
@@ -366,7 +375,7 @@ def decoder(context, h_state, cell_state):
 from keras.backend import sigmoid
 
 def swish(x, beta = 1):
-    return (x * sigmoid(beta * x))
+	return (x * sigmoid(beta * x))
 
 
 
@@ -399,13 +408,17 @@ drop = Dropout(0.3)
 
 
 # define inputs
-x_input = Input(shape=(Tx, height, width, channels))
+if model_type != "price":
+	x_input = Input(shape=(Tx, height, width, channels))
+else:
+	x_input = Input(shape=(Tx, channels))
+
 times_in = Input(shape=(Tx, times_in_dim))
 times_out = Input(shape=(Ty, times_out_dim))
 out_nwp = Input(shape=(Ty, channels-1))
 s_state0 = Input(shape=(32,))
 c_state0 = Input(shape=(32,))
-dec_inp = Input(shape=(None, 1))
+# dec_inp = Input(shape=(None, 1))
 
 s_state = s_state0
 c_state = c_state0
@@ -428,9 +441,10 @@ temporal_attn_quantiles = {}
 # for q in quantiles:
 
 # call CCN_encoder function
-ccn_enc_output = cnn_encoder(x_input)
+if model_type != "price":
+	ccn_enc_output = cnn_encoder(x_input)
 
-# call LSTM_encoder function
+# call LSTM_encoder function 
 lstm_enc_output, enc_s_state, enc_c_state = encoder(x_input, times_in)
 
 # s_state_enc = enc_s_state
@@ -489,9 +503,11 @@ for q in quantiles:
   
 	ts_predictions = []
 	temp_attns = []
+	spatial_attns = []
 
-	intial_in = K.mean(x_input, axis=(2,3))
-	prev_prediction = intial_in[:,-1:,0:1]
+	if model_type != "price":
+		intial_in = K.mean(x_input, axis=(2,3))
+		prev_prediction = intial_in[:,-1:,0:1]
 
 	decoder = LSTM(32, return_sequences = False, return_state = True, name=f'decoder_q_{q}')
 	# decoder_2 = LSTM(32, return_sequences = False, return_state = True, name=f'decoder2_q_{q}')
@@ -516,28 +532,35 @@ for q in quantiles:
 
 		# get context matrix (temporal)
 		# attn_weights_temp, context_temp = attention(n_s, name=f"temporal_attention_q_{q}_{ts}")(lstm_enc_output, current_times_out, s_state, c_state)
-		attn_weights_temp, context_temp = temporal_attention(lstm_enc_output, enc_out, s_state, c_state)
+		attn_weights_temp, context = temporal_attention(lstm_enc_output, enc_out, s_state, c_state)
 
 		# get context matrix (spatial)
 		# attn_weights_spat, context_spat = attention(n_s, name=f"spatial_attention_q_{q}_{ts}")(ccn_enc_output, s_state, c_state)
-		attn_weights_spat, context_spat = spatial_attention(ccn_enc_output, enc_out, s_state, c_state)
+		if model_type != "price":
+			attn_weights_spat, context_spat = spatial_attention(ccn_enc_output, enc_out, s_state, c_state)
 
-		# combine spatial and temporal context
-		context = concatenate([context_temp, context_spat], axis=-1, name=f'concat1.5_q_{q}_{ts}') 
-		# context = context_temp
+			# combine spatial and temporal context
+			context = concatenate([context, context_spat], axis=-1, name=f'concat1.5_q_{q}_{ts}') 
+			# context = context_temp
 
-		if ts > 0:
-			decoder_input = concatenate([out_nwp[:,ts-1:ts,:], times_out[:,ts-1:ts,:]], axis=-1, name=f'concat2_q_{q}_{ts}')
+			if ts > 0:
+				decoder_input = concatenate([out_nwp[:,ts-1:ts,:], times_out[:,ts-1:ts,:]], axis=-1, name=f'concat2_q_{q}_{ts}')
+			else:
+				decoder_input = concatenate([intial_in[:,-1:,1:], times_in[:,-1:,:]], axis=-1, name=f'concat3_q_{q}_{ts}')  
 		else:
-			decoder_input = concatenate([intial_in[:,-1:,1:], times_in[:,-1:,:]], axis=-1, name=f'concat3_q_{q}_{ts}')  
+			decoder_input = times_out[:,ts-1:ts,:]                              
 
-		decoder_input = concatenate([prev_prediction, decoder_input], axis=-1, name=f'concat4_q_{q}_{ts}')
+		# decoder_input = concatenate([prev_prediction, decoder_input], axis=-1, name=f'concat4_q_{q}_{ts}')
 		# decoder_input = concatenate([decoder_input, context], axis=-1, name=f"concat2_q_{q}_{ts}") 
 
 		# if ts > 0:
-		# decoder_input = concatenate([decoder_input, K.expand_dims(prev_prediction, axis=1)], axis=-1, name=f"concat3_q_{q}_{ts}")  
+		
+        # decoder_input = concatenate([decoder_input, K.expand_dims(prev_prediction, axis=1)], axis=-1, name=f"concat3_q_{q}_{ts}")  
+
+		# print(decoder_input.shape)
 
 		dec_output, s_state, c_state = decoder(decoder_input, initial_state = [s_state, c_state])
+		# dec_output, s_state, c_state = decoder(decoder_input)
 		# dec_output, s_state, c_state = state = LSTM(n_s * 2, return_sequences = False, return_state = True, name=f'decoder_q_{q}_{ts}')(decoder_input, initial_state = [s_state, c_state])
 		# dec_output, _ , _ = state = LSTM(n_s, return_sequences = True, return_state = True, name=f'decoder_q_{q}')(decoder_input)
 
@@ -552,22 +575,29 @@ for q in quantiles:
 		output = output_2(output)
 
 		# output = Activation('relu', name=f'swish_act_q_{q}_{ts}')(output)
-		# output = final_act(output)
+		output = final_act(output)
 
 		prev_prediction = output
 		ts_predictions.append(output)
 		temp_attns.append(attn_weights_temp)
-    
+
+		if model_type != "price":        
+			spatial_attns.append(attn_weights_spat)
+
 	ts_predictions_total = concatenate(ts_predictions, axis = 1)
 	temp_attns_total = concatenate(temp_attns, axis = -1)
-	# ts_predictions_total = K.expand_dims(ts_predictions_total, axis=-1)
+
+	if model_type != "price":
+		sptial_attns_total = concatenate(spatial_attns, axis = -1)
+
 	qunatile_predictions.append(ts_predictions_total)
-	# K.clear_session()
-# combined_predictions  = concatenate(combined_predictions, axis=-1)  
+
 
 qunatile_predictions.extend([temp_attns_total])
 
-print(len(qunatile_predictions))
+if model_type != "price":
+	qunatile_predictions.extend([sptial_attns_total])
+
 # sys.exit()
 
 # predictions = K.expand_dims(predictions , axis=-1)
@@ -730,9 +760,9 @@ def loss_func(q):
 
 func_test = lambda y,f: defined_loss(q,y,f) 
 
-a = lambda y,f: defined_loss(0.1,y,f)
+a = lambda y,f: defined_loss(0.01,y,f)
 b = lambda y,f: defined_loss(0.5,y,f) 
-c = lambda y,f: defined_loss(0.9,y,f)
+c = lambda y,f: defined_loss(0.99,y,f)
 
 q_losses = [a, b, c]
 
@@ -750,7 +780,7 @@ model.compile(loss = q_losses, optimizer= optimizer)
 # model.compile(loss = [lambda y,f: defined_loss(q,y,f), None, None], optimizer= optimizer, metrics = ['mae'])
 print(model.summary())
 
-train = model.fit(training_generator, epochs = 5)
+train = model.fit(training_generator, epochs = 10)
 
 os.mkdir(f'/content/drive/My Drive/{model_type}Models/q_{q}')
 # model_freeze.save_weights('/content/drive/My Drive/solarGeneration_forecast_weights_freezed' + '_Q_%s' %(q) + '.h5')
@@ -758,10 +788,10 @@ model.save(f'/content/drive/My Drive/{model_type}Models/q_{q}/{model_type}Genera
 # model.save_weights('/content/drive/My Drive/solarGeneration_forecast_weights_test2' + '_Q_%s' %(q) + '.h5')
 
 # save some additional models for inference
-# enoder_temporal_model = Model(inputs = [x_input, times_in], outputs=[lstm_enc_output, enc_s_state, enc_c_state])
-# enoder_spatial_model = Model(x_input, ccn_enc_output)
-# enoder_temporal_model.save(f'/content/drive/My Drive/{model_type}Models/q_{q}/{model_type}Generation_encoderModelTemporal' + '_Q_%s' %(q) + '.h5')
-# enoder_spatial_model.save(f'/content/drive/My Drive/{model_type}Models/q_{q}/{model_type}Generation_encoderModelSpatial' + '_Q_%s' %(q) + '.h5')
+enoder_temporal_model = Model(inputs = [x_input, times_in], outputs=[lstm_enc_output, enc_s_state, enc_c_state])
+enoder_spatial_model = Model(x_input, ccn_enc_output)
+enoder_temporal_model.save(f'/content/drive/My Drive/{model_type}Models/q_{q}/{model_type}Generation_encoderModelTemporal' + '_Q_%s' %(q) + '.h5')
+enoder_spatial_model.save(f'/content/drive/My Drive/{model_type}Models/q_{q}/{model_type}Generation_encoderModelSpatial' + '_Q_%s' %(q) + '.h5')
 print('predicting')
 predictions = model.predict(training_generator)
 # predictions = predictions[0]
