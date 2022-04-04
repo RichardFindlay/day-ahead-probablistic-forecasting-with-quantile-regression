@@ -156,8 +156,12 @@ class DataGenerator(tensorflow.keras.utils.Sequence):
 		X_train1 = f['train_set']['X1_train'][input_indexes]
 		X_train2 = f['train_set']['X2_train'][input_indexes]
 		X_train3 = f['train_set']['X3_train'][output_indexes]
-		X_train4 = f['train_set']['X1_train'][output_indexes][:,:,:,1:]
-		X_train4 = np.average(X_train4, axis=(1,2))
+
+		if model_type != 'price':        
+			X_train4 = f['train_set']['X1_train'][output_indexes][:,:,:,1:]
+			X_train4 = np.average(X_train4, axis=(1,2))
+		else: 
+			X_train4 = f['train_set']['X1_train'][output_indexes][:,1:]
 
 		# print(X_train4.shape)
 		# sys.exit()        
@@ -525,10 +529,15 @@ for q in quantiles:
 
 	for ts in range(Ty):
 
+
+
 		# current_nwp_data = Lambda(lambda x: x[:,ts:ts+1,:], name=f"current_nwp_q_{q}_{ts}")(out_nwp)
 		# current_times_out = Lambda(lambda x: x[:,ts:ts+1,:], name=f"current_times_out_q_{q}_{ts}")(times_out)
 
-		enc_out = concatenate([out_nwp[:,ts:ts+1,:], times_out[:,ts:ts+1,:]], axis=-1, name=f'concat1_q_{q}_{ts}')        
+		if model_type != "price":
+			enc_out = concatenate([out_nwp[:,ts:ts+1,:], times_out[:,ts:ts+1,:]], axis=-1, name=f'concat1_q_{q}_{ts}')        
+		else:
+			enc_out = times_out[:,ts:ts+1,:] 
 
 		# get context matrix (temporal)
 		# attn_weights_temp, context_temp = attention(n_s, name=f"temporal_attention_q_{q}_{ts}")(lstm_enc_output, current_times_out, s_state, c_state)
@@ -548,7 +557,10 @@ for q in quantiles:
 			else:
 				decoder_input = concatenate([intial_in[:,-1:,1:], times_in[:,-1:,:]], axis=-1, name=f'concat3_q_{q}_{ts}')  
 		else:
-			decoder_input = times_out[:,ts-1:ts,:]                              
+			if ts > 0:
+				decoder_input = times_out[:,ts-1:ts,:]
+			else:
+				decoder_input = times_in[:,-1:,:]                             
 
 		# decoder_input = concatenate([prev_prediction, decoder_input], axis=-1, name=f'concat4_q_{q}_{ts}')
 		# decoder_input = concatenate([decoder_input, context], axis=-1, name=f"concat2_q_{q}_{ts}") 
@@ -557,7 +569,6 @@ for q in quantiles:
 		
         # decoder_input = concatenate([decoder_input, K.expand_dims(prev_prediction, axis=1)], axis=-1, name=f"concat3_q_{q}_{ts}")  
 
-		# print(decoder_input.shape)
 
 		dec_output, s_state, c_state = decoder(decoder_input, initial_state = [s_state, c_state])
 		# dec_output, s_state, c_state = decoder(decoder_input)
