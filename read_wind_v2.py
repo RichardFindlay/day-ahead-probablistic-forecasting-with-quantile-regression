@@ -121,6 +121,14 @@ with open(f'./Data/{model_type}/Processed_Data/time_refs_{model_type}.pkl', 'rb'
 input_times = time_refs[f'input_times_{set_type}'][0:3000]
 output_times = time_refs[f'output_times_{set_type}'][0:3000]
 
+
+print(input_times[0])
+
+print(output_times[0])
+
+exit()
+
+
 time_file.close()  
 
 
@@ -428,19 +436,10 @@ if plot_spatial_attention is True:
 
 
 # add date references to result dictionaries
-
 time_refs = {'input_times': times_in, 'output_times': times_out}
 
 predictions['time_refs'] = time_refs
 quantile_temporal_attns['time_refs'] = time_refs 
-
-print(predictions.keys())
-
-print(predictions['time_refs'].keys())
-
-
-exit()
-
 
 
 # save results - forecasted timeseries matrix
