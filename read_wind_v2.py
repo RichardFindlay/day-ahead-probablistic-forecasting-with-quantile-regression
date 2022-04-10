@@ -42,6 +42,9 @@ model_type ="solar"
 plot_temporal_attention = True
 plot_spatial_attention = False
 
+plot_ref = 40
+# idx = 40
+
 
 if model_type == 'wind':
 	dataset_name = 'train_set_V100_wind.hdf5'
@@ -106,7 +109,7 @@ if model_type != "price":
 # load and process data
 f = h5py.File(f"./Data/{model_type}/Processed_Data/{dataset_name}", "r")
 
-set_type = 'test'
+set_type = 'train'
 
 X_train1 = f[f'{set_type}_set'][f'X1_{set_type}'][0:3000]
 X_train2 = f[f'{set_type}_set'][f'X2_{set_type}'][0:3000]
@@ -122,11 +125,6 @@ input_times = time_refs[f'input_times_{set_type}'][0:3000]
 output_times = time_refs[f'output_times_{set_type}'][0:3000]
 
 
-print(input_times[0])
-
-print(output_times[0])
-
-exit()
 
 
 time_file.close()  
@@ -159,7 +157,7 @@ while (output_start + output_seq_size) <= len(y_train):
 		a = X_train4[output_start:output_end][:,1:]
 	seqX4.append(a)
 	seqY.append(y_train[output_start:output_end])
-	times_out.append(output_times[input_start:input_end])
+	times_out.append(output_times[output_start:output_end])
 
 	input_start += output_seq_size
 	output_start += output_seq_size
@@ -168,6 +166,9 @@ while (output_start + output_seq_size) <= len(y_train):
 x1, x2, x3, x4, y = np.array(seqX1), np.array(seqX2), np.array(seqX3), np.array(seqX4), np.array(seqY)
 times_in, times_out = np.array(times_in), np.array(times_out)
 f.close() 
+
+
+
 
 
 s0 = np.zeros((1, n_s))
@@ -308,8 +309,7 @@ for q in quantiles:
 	quantile_temporal_attns[f'{q}'] = total_temp
 
 
-plot_ref = 0
-idx = 0
+
 
 # plot predictions
 for idx, (key, values) in enumerate(predictions.items()):
@@ -321,14 +321,14 @@ plt.show()
 
 
 # plot temporal attention (quantile 0.5)
-att_w_temp = np.transpose(quantile_temporal_attns['0.5'][idx])
+att_w_temp = np.transpose(quantile_temporal_attns['0.5'][plot_ref])
 if model_type != "price":
-	x = np.average(x1, axis=(2,3))[idx, :]
+	x = np.average(x1, axis=(2,3))[plot_ref, :]
 else:
-	x = x1[idx, :]
+	x = x1[plot_ref, :]
 
-y_attn = y[idx, :, 0]
-y_hat = predictions['0.5'][idx, :]
+y_attn = y[plot_ref, :, 0]
+y_hat = predictions['0.5'][plot_ref, :]
 
 #make attention plotting function
 def temporal_attention_graph(x, y, att_w_temp):
@@ -353,7 +353,7 @@ def temporal_attention_graph(x, y, att_w_temp):
 	left_axis.set_yticklabels(range(0, Ty, 6))
 	left_axis.invert_yaxis()
 
-	sns.heatmap(att_w_temp, cmap='flare', ax = atten_axis, vmin=0, vmax=0.01)
+	sns.heatmap(att_w_temp, cmap='flare', ax = atten_axis, vmin=0, vmax=0.001)
 	atten_axis.set_xticks(range(0, Tx))
 	atten_axis.set_xticklabels(range(0, Tx))
 	atten_axis.set_yticks(range(0, Ty, 4))
@@ -429,7 +429,7 @@ def plot_spatial_predictions(spatial_data, title, height_scale, width_scale, fra
 
 if plot_spatial_attention is True:
 	# transpose spatial attention results
-	att_w_spat = np.transpose(total_spat[idx])
+	att_w_spat = np.transpose(total_spat[plot_ref])
 	# plot attention weights
 	plot_spatial_predictions(att_w_spat, 'Spatial Context', 16, 20, 48)
 
@@ -440,6 +440,9 @@ time_refs = {'input_times': times_in, 'output_times': times_out}
 
 predictions['time_refs'] = time_refs
 quantile_temporal_attns['time_refs'] = time_refs 
+
+# add x-input data 
+quantile_temporal_attns['input_features'] = x1
 
 
 # save results - forecasted timeseries matrix
