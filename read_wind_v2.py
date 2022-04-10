@@ -42,7 +42,7 @@ model_type ="solar"
 plot_temporal_attention = True
 plot_spatial_attention = False
 
-plot_ref = 40
+plot_ref = 0
 # idx = 40
 
 
@@ -109,20 +109,22 @@ if model_type != "price":
 # load and process data
 f = h5py.File(f"./Data/{model_type}/Processed_Data/{dataset_name}", "r")
 
+
+
 set_type = 'train'
 
-X_train1 = f[f'{set_type}_set'][f'X1_{set_type}'][0:3000]
-X_train2 = f[f'{set_type}_set'][f'X2_{set_type}'][0:3000]
-X_train3 = f[f'{set_type}_set'][f'X3_{set_type}'][0:3000]
-X_train4 = f[f'{set_type}_set'][f'X1_{set_type}'][0:3000]
-y_train = f[f'{set_type}_set'][f'y_{set_type}'][0:3000]
+X_train1 = f[f'{set_type}_set'][f'X1_{set_type}'][23808:25808]
+X_train2 = f[f'{set_type}_set'][f'X2_{set_type}'][23808:25808]
+X_train3 = f[f'{set_type}_set'][f'X3_{set_type}'][23808:25808]
+X_train4 = f[f'{set_type}_set'][f'X1_{set_type}'][23808:25808]
+y_train = f[f'{set_type}_set'][f'y_{set_type}'][23808:25808]
 
 # get time relevant time references
 with open(f'./Data/{model_type}/Processed_Data/time_refs_{model_type}.pkl', 'rb') as time_file:
 	time_refs = load(time_file)
 
-input_times = time_refs[f'input_times_{set_type}'][0:3000]
-output_times = time_refs[f'output_times_{set_type}'][0:3000]
+input_times = time_refs[f'input_times_{set_type}'][23808:25808]
+output_times = time_refs[f'output_times_{set_type}'][23808:25808]
 
 
 
@@ -443,6 +445,9 @@ quantile_temporal_attns['time_refs'] = time_refs
 
 # add x-input data 
 quantile_temporal_attns['input_features'] = x1
+
+# add true value for reference to prediction dictionary
+predictions['y_true'] = y
 
 
 # save results - forecasted timeseries matrix
