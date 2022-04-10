@@ -36,6 +36,7 @@ var output_graphs = []
 var output_scales = []
 var output_axes = []
 var output_lines = []
+var output_line_true = []
 
 var values = [] 
 var output_values = []
@@ -253,6 +254,10 @@ output_lines[name] = d3.line()
                 .y(function(d) { return scales_out['yscale'](d.output_time_ref) })
 
 
+output_line_true[name] = d3.line()
+                .curve(d3.curveBasis)
+                .x(function(d) { return scales_out['xscale'](d.y_true) })
+                .y(function(d) { return scales_out['yscale'](d.output_time_ref) })
 
 
 // ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -267,6 +272,7 @@ d3.csv(context_data,
              variable_index: d.variable_index = +d.variable_index,
              group: d3.timeParse("%d/%m/%Y %H:%M")(d.group), 
              variable: d3.timeParse("%d/%m/%Y %H:%M")(d.variable),
+             value_scaled: d.value_scaled = +d.value_scaled,
              value: d.value = +d.value,
              input_time_ref: d.input_time_ref = +d.input_time_ref,
              input_time: d3.timeParse("%d/%m/%Y %H:%M")(d.input_time),
@@ -275,6 +281,7 @@ d3.csv(context_data,
              output_time_ref: d.output_time_ref = +d.output_time_ref,
              output_time: d3.timeParse("%d/%m/%Y %H:%M")(d.output_time),
              prediction: d.prediction = +d.prediction,
+             y_true: d.y_true = +d.y_true,
     }
   },
 
@@ -287,8 +294,12 @@ d3.csv(context_data,
 
     // output_values[name] = data_out;
 
+    // get min and max of the dataset
+  var min = d3.min(values[name], function(d){return d.value_scaled;})
+  var max = d3.max(values[name], function(d){return d.value_scaled;})
+
     var defs = heatmap_graphs['heatmap_' + name].append("defs");
-    var color = ["#2c7bb6", "#00a6ca","#00ccbc","#90eb9d","#ffff8c", "#f9d057","#f29e2e","#e76818","#d7191c"]
+    var color = ["#2C7BB6", "#00a6ca","#00ccbc","#90eb9d","#ffff8c", "#f9d057","#f29e2e","#e76818","#d7191c"]
     var colorScale = d3.scaleLinear().range(color);
 
     // List of groups = header of the csv files
@@ -316,10 +327,10 @@ heatmap_graphs_2['heatmap' + name] = heatmap_graphs['heatmap_' + name].selectAll
     .data(values[name], function(d) {return d.group+':'+d.variable;})
     .enter()
     .append("rect")
-      .attr("x", function(d) { return scales_heat['xscale'](d.group) })
+      .attr("x", function(d) { return scales_heat['xscale'](d.group)})
       .attr("y", function(d) { return scales_heat['yscale'](d.variable )})
-      .attr("width", scales_heat['xscale'].bandwidth())
-      .attr("height", scales_heat['yscale'].bandwidth())
+      .attr("width", scales_heat['xscale'].bandwidth()+0.7)
+      .attr("height", scales_heat['yscale'].bandwidth()+0.7)
       // .style("fill", function(d) { return colorScaleRainbow(colorInterpolateRainbow(d.value)); } )
       .style("opacity", 1.0)
       .style("stroke-width", 0)
@@ -328,12 +339,12 @@ heatmap_graphs_2['heatmap' + name] = heatmap_graphs['heatmap_' + name].selectAll
 
     // Build color scale
     var myColor = d3.scaleSequential()
-      .domain(d3.extent(values[name], function(d){return d.value;}))
+      .domain(d3.extent(values[name], function(d){return d.value_scaled;}))
       .interpolator(color);
 
       //scale the colors
     colorScale.domain(d3.extent(values[name],function(d){
-      return d.value;
+      return d.value_scaled;
     }));
 
 
@@ -468,6 +479,17 @@ heatmap_graphs_2['heatmap' + name] = heatmap_graphs['heatmap_' + name].selectAll
       .call(axes_out['yAxis'])
       // .select(".domain").remove();
 
+
+    var path_out_true = output_graphs['svg_output_' + name].append("path")
+      .datum(values[name])
+      .attr("class", "line_output_true" + name)
+      .attr("fill", "orange")
+      .attr("fill-opacity", 0.05)
+      .attr("stroke", "orange")
+      .attr("stroke-width", 1.25)
+      .attr("d", output_line_true[name](values[name]));
+
+
     // Add the line path.
     var path_out = output_graphs['svg_output_' + name].append("path")
       .datum(values[name])
@@ -487,8 +509,11 @@ heatmap_graphs_2['heatmap' + name] = heatmap_graphs['heatmap_' + name].selectAll
 //////////// Get continuous color scale for the Rainbow ///////////////////
 ///////////////////////////////////////////////////////////////////////////
 
-var coloursRainbow = ["#2c7bb6", "#00a6ca","#00ccbc","#90eb9d","#ffff8c","#f9d057","#f29e2e","#e76818","#d7191c"];
-var colourRangeRainbow = d3.range(0, 1, 1.0 / (coloursRainbow.length - 1));
+// var coloursRainbow = ["#fde725", "#dde318", "#bade28", "#95d840", "#75d054", "#56c667", "#3dbc74", "#29af7f", "#20a386", "#1f968b", "#238a8d", "#287d8e", "#2d718e", "#33638d", "#39558c", "#404688", "#453781", "#482576", "#481467", "#440154"];
+// var coloursRainbow = ["#d7e1ee", "#cbd6e4", "#bfcbdb", "#b3bfd1", "#a4a2a8", "#df8879", "#c86558", "#b04238", "#991f17"];
+var coloursRainbow = ["#2C7BB6", "#00a6ca","#00ccbc","#90eb9d","#ffff8c", "#f9d057","#f29e2e","#e76818","#d7191c"]
+// coloursRainbow.reverse()
+var colourRangeRainbow = d3.range(0, 1, 1 / (coloursRainbow.length - 1));
 colourRangeRainbow.push(1);
        
 //Create color gradient
@@ -499,17 +524,20 @@ var colorScaleRainbow = d3.scaleLinear()
 
 //Needed to map the values of the dataset to the color scale
 var colorInterpolateRainbow = d3.scaleLinear()
-  .domain(d3.extent(values[name], function(d){return d.value;}))
+  .domain(d3.extent(values[name], function(d){return d.value_scaled;}))
   .range([0,1]);
 
-// get min and max of the dataset
-var min = d3.min(values[name], function(d){return d.value;})
-var max = d3.max(values[name], function(d){return d.value;})
+// // get min and max of the dataset
+// var min = d3.min(values[name], function(d){return d.value;})
+// var max = d3.max(values[name], function(d){return d.value;})
+
+console.log(min)
+console.log(max)
+console.log(colourRangeRainbow)
 
 
 var legendWidth = width - 200
     var legendHeight = 7.5
-
 
     //  make the heatmap legend
     // https://www.visualcinnamon.com/2016/05/smooth-color-legend-d3-svg-gradient/
@@ -568,7 +596,20 @@ var legendWidth = width - 200
     //   .style("fill", "#4F4F4F")
     //   .text("Context");
 
-    legend_scales['legendScale' + name].domain([min,max])
+    leg_min = d3.min(values[name], function(d){return d.value;})
+    leg_max = d3.max(values[name], function(d){return d.value;}) 
+
+    console.log(leg_max)
+
+    var colourRangeRainbow_leg = d3.range(leg_min, leg_max, leg_max / (coloursRainbow.length - 1));
+    colourRangeRainbow_leg.push(leg_max);
+
+    console.log(colourRangeRainbow_leg)
+
+
+
+    legend_scales['legendScale' + name].domain([leg_min, leg_max])
+
 
     var legend_axis_ref = legend_graphs['legend_' + name].append("g")
       .attr("class", "x axis_legend")
@@ -675,7 +716,7 @@ defs.append("linearGradient")
         .attr("class", "mouse-text3" + name)
 
       // var lines = document.getElementsByClassName('line');
-      var lines = [path,path_out]
+      var lines = [path,path_out, path_out_true]
 
       // var totalLength = path.node().getTotalLength();
       var totalLength = 1000
@@ -725,7 +766,7 @@ defs.append("linearGradient")
       mouseG
         .append('svg:rect') // append a rect to catch mouse movements on canvas
         .attr('width', width) // can't catch mouse events on a g element
-        .attr('height', height)
+        .attr('height', height +100)
         .attr('fill', 'none')
         .attr('pointer-events', 'all')
         .attr('cursor', 'crosshair')
@@ -775,6 +816,12 @@ defs.append("linearGradient")
             .style("opacity", "0"); })
 
         const point = output_graphs['svg_output_' + name].append('circle')
+          .attr('r', 4)
+          .style("fill", 'none')
+          .style("stroke", '#3A3B3C')
+          .style("opacity", "0");
+
+        const point_out2 = output_graphs['svg_output_' + name].append('circle')
           .attr('r', 4)
           .style("fill", 'none')
           .style("stroke", '#3A3B3C')
@@ -1016,7 +1063,7 @@ defs.append("linearGradient")
 
           heatmap_graphs_2['heatmap' + name].on('mousemove', () => {
 
-              const x = d3.event.layerX - margin.left; 
+              const x = d3.event.layerX + margin.left + 10; 
               const curX = scales['xscale'].invert(x);
               const minX = Math.floor(curX);
               const maxX = Math.ceil(curX);
@@ -1067,16 +1114,27 @@ defs.append("linearGradient")
                 const maxP = values[name][maxY].prediction;
                 const curP = minP + (maxP - minP) * yDelta;
                 const xPos = scales_out['xscale'](curP)
+                // get true value point location
+                const minP_true = values[name][minY].y_true;
+                const maxP_true = values[name][maxY].y_true;
+                const curP_true = minP_true + (maxP_true - minP_true) * yDelta;
+                const xPos_true = scales_out['xscale'](curP_true)
+
                 // console.log(xPos);
                 point
                     .attr('cx', xPos)
                     .attr('cy', y)
                     .style("opacity", "1");
 
+                point_out2
+                    .attr('cx', xPos_true)
+                    .attr('cy', y)
+                    .style("opacity", "1");
+
                 d3.select("#my_dataviz" + name + "4")
                   .select(".mouse-line2" + name)
                   .attr("d", function() {
-                    var d = "M" + output_graph_width + "," + y;
+                    var d = "M" + (output_graph_width+30) + "," + y;
                     d += " " + 0 + "," + y;
                     return d;
                   })
@@ -1131,7 +1189,7 @@ defs.append("linearGradient")
 
                 d3.select("#my_dataviz" + name + "2").select('.tooltip')
                 // tooltip
-                  .html("<strong>Context:&nbsp</strong>" + d.value.toFixed(4) + "<br><strong>Input:&nbsp</strong>" + curPx.toFixed(4) + "MW<br><strong>Output:&nbsp</strong>" + curP.toFixed(4)  + "MW")
+                  .html("<strong>Context:&nbsp</strong>" + d.value.toFixed(4) + "<br><strong>Input:&nbsp</strong>" + curPx.toFixed(4) + "MW<br><strong>Prediction:&nbsp</strong>" + curP.toFixed(4)  + "MW" + "<br><strong>Actual:&nbsp</strong>" + curP_true.toFixed(4)  + "MW")
                   .style("left", (d3.mouse(this)[0]+40) + "px")
                   .style("top", (d3.mouse(this)[1]) + "px")
                   .attr('cursor', 'crosshair')  
@@ -1165,6 +1223,7 @@ defs.append("linearGradient")
           .select('.mouse-text2' + name)
           .style("opacity", "0")          
         point.style("opacity", "0")
+        point_out2.style("opacity", "0")
         point_input.style("opacity", "0")
         tooltip.style("opacity", 0)
 
@@ -1173,7 +1232,7 @@ defs.append("linearGradient")
       }
 
 
-      heatmap_graphs_2['heatmap' + name].style("fill", function(d) { return colorScaleRainbow(colorInterpolateRainbow(d.value)); } )
+      heatmap_graphs_2['heatmap' + name].style("fill", function(d) { return colorScaleRainbow(colorInterpolateRainbow(d.value_scaled)); } )
           .on("mouseover", mouseover)
           // .on("mousemove", mousemove)
           .on("mouseleave", mouseleave)
@@ -1277,8 +1336,8 @@ defs.append("linearGradient")
 
         heatmap_graphs_2['heatmap' + current_chart] .attr("x", function(d) { return heatmap_scales[idx]['xscale'](d.group) })
           .attr("y", function(d) { return heatmap_scales[idx]['yscale'](d.variable )})
-          .attr("width", heatmap_scales[idx]['xscale'].bandwidth())
-          .attr("height", heatmap_scales[idx]['yscale'].bandwidth())
+          .attr("width", heatmap_scales[idx]['xscale'].bandwidth()+0.6)
+          .attr("height", heatmap_scales[idx]['yscale'].bandwidth()+0.6)
 
 
         //  update dates scales
@@ -1317,7 +1376,7 @@ defs.append("linearGradient")
 
         output_graphs[Object.keys(output_graphs)[idx]].select(".x.axis_out" + current_chart).call(output_axes[idx]['xAxis']).select(".domain").remove();
         output_graphs[Object.keys(output_graphs)[idx]].select('.line_output' + current_chart).attr("d", output_lines[Object.keys(output_lines)[idx]](values[current_chart]))
-
+        output_graphs[Object.keys(output_graphs)[idx]].select('.line_output_true' + current_chart).attr("d", output_line_true[Object.keys(output_line_true)[idx]](values[current_chart]))
 
         var adj_width = width - buffer
 
@@ -1439,7 +1498,7 @@ function width_check(current_width, current_height) {
 
   }
   else {
-    output_graph_width = current_height / 2.75
+    output_graph_width = (current_height / 3.75)
     buffer = 120
     main_graph_width = current_width - 160    
   }
