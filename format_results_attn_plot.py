@@ -1,4 +1,4 @@
-# format attention results for context plot
+# format attention results for context d3 plot
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
@@ -10,7 +10,7 @@ from sklearn.preprocessing import MinMaxScaler
 type = 'solar' 
 
 # select example refernce
-ex_idx = 40 
+ex_idx = 0 
 
 # load attention data 
 with open(f'attention_data_{type}.pkl', 'rb') as attention_data:
@@ -83,7 +83,6 @@ input_time = [date_time for date_time in input_date_range]
 # output times
 output_time =  pd.date_range(start=target_data, end=target_data + timedelta(days=1) , freq="30min").tolist()[:-1]
 
-
 attention_vals_int = attention_vals
 
 # take log of attention values
@@ -91,6 +90,10 @@ scaler = MinMaxScaler(feature_range = (0, 1))
 attention_vals_scaled = scaler.fit_transform(attention_vals.reshape(-1,1)).reshape(-1)
 
 attention_vals_scaled = np.sqrt(attention_vals_scaled)
+
+# get true values for reference
+y_true = predictions['y_true'][ex_idx][:,0]
+
 
 # final params for df 
 final_params = {'group_index': group_index, 
@@ -105,7 +108,8 @@ final_params = {'group_index': group_index,
 				'input_cloud_cover': [],
 				'output_time_ref': output_time_ref, 
 				'output_time': output_time, 
-				'prediction': current_prediction}
+				'prediction': current_prediction,
+				'y_true': y_true }
 
 # convert to pandas df
 df = pd.DataFrame(dict([(keys ,pd.Series(values, dtype = 'object')) for keys, values in final_params.items()])) # set all as objects to avoid warning on empty cells
