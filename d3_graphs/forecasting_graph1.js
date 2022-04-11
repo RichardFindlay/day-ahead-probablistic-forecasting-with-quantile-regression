@@ -55,15 +55,15 @@ function prob_forecast(file, ref, color_array) {
 
   function(d){
     return { date: d3.timeParse("%d/%m/%Y %H:%M")(d.Datetime), 
-             one: d.one = +d.one,
-             second: d.second = +d.second,
-             third: d.third = +d.third,
-             fourth: d.fourth = +d.fourth,
-             five: d.five = +d.five,
-             six: d.six = +d.six,
-             seven: d.seven = +d.seven,
-             eight: d.eight = +d.eight,
-             nine: d.nine = +d.nine,
+             one: d.q_05 = +d.q_05,
+             second: d.q_15 = +d.q_15,
+             third: d.q_25 = +d.q_25,
+             fourth: d.q_35 = +d.q_35,
+             five: d.q_5 = +d.q_5,
+             six: d.q_65 = +d.q_65,
+             seven: d.q_75 = +d.q_75,
+             eight: d.q_85 = +d.q_85,
+             nine: d.q_95 = +d.q_95,
              actual: d.actual = +d.actual,
     }
   },
@@ -78,7 +78,7 @@ function prob_forecast(file, ref, color_array) {
     // });
 
     //declare parse dates
-    var parseDate = d3.timeParse("%a %d");
+    var parseDate = d3.timeParse("%A");
 
 
 
@@ -91,16 +91,32 @@ function prob_forecast(file, ref, color_array) {
     var x = d3.scaleTime()
       .domain(d3.extent(data, function(d) { return d.date; }))
       .range([ 0, width ])
+
     svg.append("g")
       .attr("transform", "translate(0," + height + ")")
       .call(d3.axisBottom(x).tickFormat(d3.timeFormat(parseDate)).tickSizeInner(-height).tickSizeOuter(0).ticks(7).tickPadding(20)) //.tickFormat(d3.timeFormat(parseDate))
       .selectAll(".tick text")
       .attr("transform", "translate(" + (width / 7) / 2 + ",0)")
       .style("text-transform", "uppercase")
-      .style("font-size", "17px")
+      .style("font-size", "16px")
+      .style("opacity", 0.5)
       // .tickArguments([5])
       // .tickCenterLabel(true)
       .select(".domain").remove()
+
+    svg.append("g")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(x).tickFormat(d3.timeFormat("(%d/%m/%y)")).tickSizeInner(-height).tickSizeOuter(0).ticks(7).tickPadding(20)) //.tickFormat(d3.timeFormat(parseDate))
+      .selectAll(".tick text")
+      .attr("transform", "translate(" + (width / 7) / 2 + ",17)")
+      .style("text-transform", "uppercase")
+      .style("font-size", "14px")
+      .style("font-style", "italic")
+      .style("opacity", 0.5)
+
+      .select(".domain").remove()
+
+
 
 
     // x-axis mini tick marks
@@ -152,7 +168,7 @@ function prob_forecast(file, ref, color_array) {
 
     // Add Y axis
     var y = d3.scaleLinear()
-      .domain([0, 1500])
+      .domain([0, d3.max(data, function(d) { return +d.nine; }) * 1.05])
       .range([ height, 0 ])
     svg.append("g")
       .call(d3.axisLeft(y).tickSizeInner(-width).ticks(8).tickPadding(12.5))
@@ -369,7 +385,7 @@ function prob_forecast(file, ref, color_array) {
 
     // legend
     var count = ['1','2','3','4','5','6'] 
-    var legendKeys = d3.scaleOrdinal().range(['Quantile 1 - 99', 'Quantile 10 - 90', 'Quantile 20 - 80', 'Quantile 30 - 70', 'Mean Prediction', 'Actual']);
+    var legendKeys = d3.scaleOrdinal().range(['Quantile 5 - 95', 'Quantile 15 - 85', 'Quantile 25 - 75', 'Quantile 35 - 65', 'Mean', 'Actual']);
     
 
     // Add one dot in the legend for each name.
