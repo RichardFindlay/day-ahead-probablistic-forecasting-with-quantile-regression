@@ -31,6 +31,7 @@ var dates_scale = []
 var dates_axes = []
 var dates_min_axes = []
 var dates_noon_axes = []
+var dates_noon_axes_ref = []
 
 var output_graphs = []
 var output_scales = []
@@ -69,8 +70,10 @@ function context_graph(context_data, output_data, name) {
 
   var scale_dates = new Array()
   var axes_dates = new Array()
+  var axes_dates_date_ref = new Array()
   var axes_dates_min = new Array()
   var axes_dates_noon = new Array()
+  var axes_dates_noon_date_ref = new Array()
 
   charts.push(name)
 
@@ -87,7 +90,7 @@ function context_graph(context_data, output_data, name) {
  heatmap_graphs['heatmap_' + name] = d3.select("#my_dataviz" + name + "2")
   .append("svg")
     .attr("width", width)
-    .attr("height", height)
+    .attr("height", height+10)
     .attr('cursor', 'crosshair')
   .append("g")
     .attr("transform",
@@ -217,9 +220,14 @@ if (width < 550) {
   axes_dates_noon['xAxis'] = d3.axisBottom().scale(scale_dates['xscale']).tickFormat(d3.timeFormat("%d/%m")).ticks(d3.timeHour.every(12)).tickSize(8).tickPadding(8);
   axes_dates['yAxis'] = d3.axisLeft().scale(scale_dates['yscale']).tickFormat(d3.timeFormat("%d/%m")).ticks(d3.timeHour.every(12)).tickSize(8); // Noon y-tick
 } else {
-  axes_dates_noon['xAxis'] = d3.axisBottom().scale(scale_dates['xscale']).tickFormat(d3.timeFormat("%a %d")).ticks(d3.timeHour.every(12)).tickSize(8).tickPadding(8);
-  axes_dates['yAxis'] = d3.axisLeft().scale(scale_dates['yscale']).tickFormat(d3.timeFormat("%a %d")).ticks(d3.timeHour.every(12)).tickSize(8); // Noon y-tick
+  axes_dates_noon['xAxis'] = d3.axisBottom().scale(scale_dates['xscale']).tickFormat(d3.timeFormat("%A")).ticks(d3.timeHour.every(12)).tickSize(8).tickPadding(8);
+  axes_dates_noon_date_ref['xAxis'] = d3.axisBottom().scale(scale_dates['xscale']).tickFormat(d3.timeFormat("(%d/%m/%Y)")).ticks(d3.timeHour.every(12)).tickSize(0).tickPadding(0);
+  axes_dates['yAxis'] = d3.axisLeft().scale(scale_dates['yscale']).tickFormat(d3.timeFormat("%A")).ticks(d3.timeHour.every(12)).tickSize(4); // Noon y-tick
+  axes_dates_date_ref['yAxis'] = d3.axisLeft().scale(scale_dates['yscale']).tickFormat(d3.timeFormat("(%d/%m/%Y)")).ticks(d3.timeHour.every(12)).tickSize(0); // Noon y-tick
 }
+
+
+
 
 
 // get width of legend relative to screen size
@@ -233,6 +241,10 @@ legend_scales['legendScale' + name] = d3.scaleLinear()
 
 //Set up X axis
 legend_axes['legendAxis' + name] = d3.axisBottom().scale(legend_scales['legendScale' + name])
+
+
+
+
 
 
 // OUTPUT SETUP ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -363,7 +375,18 @@ heatmap_graphs_2['heatmap' + name] = heatmap_graphs['heatmap_' + name].selectAll
       .style("font-size", "10px")
       .call(axes_dates['yAxis'])
     .selectAll('text')
-      .attr("transform", "translate(-20, -20) rotate(-90)")
+      .attr("transform", "translate(-20, -32.5) rotate(-90)")
+      .style("opacity", 0.5)
+
+
+    axis_date_groups['svg_heat_Ydates_date_ref' + name] = heatmap_graphs['heatmap_' + name].append("g")
+      .style("text-transform", "uppercase")
+      .style("font-size", "9px")
+      .style("font-style", "italic")
+      .call(axes_dates_date_ref['yAxis'])
+    .selectAll('text')
+      .attr("transform", "translate(-10, -30) rotate(-90)")
+      .style("opacity", 0.5)
 
 
     var svg_heat_Ydates_min = heatmap_graphs['heatmap_' + name].append("g")
@@ -377,7 +400,22 @@ heatmap_graphs_2['heatmap' + name] = heatmap_graphs['heatmap_' + name].selectAll
       .call(axes_dates_noon['xAxis'])
       .style("text-transform", "uppercase")
       .style("font-size", "10px")
-      .select(".domain").remove();
+    .selectAll('text')
+      .style("opacity", 0.5)
+    .select(".domain").remove();
+
+    axis_date_groups['svg_heat_noon_ticks_date_ref' + name] = heatmap_graphs['heatmap_' + name].append("g")
+      .attr("class", "x axis_dates_noon_date_ref" + name)
+      .attr("transform", "translate(0," + height + ")")
+      .call(axes_dates_noon_date_ref['xAxis'])
+      .style("text-transform", "uppercase")
+      .style("font-size", "9px")
+      .style("font-style", "italic")
+    .selectAll('text')
+          .style("opacity", 0.5)
+          .attr("transform", "translate(0, 27.5)")
+    .select(".domain").remove();
+
 
 
     axis_date_groups['svg_heat_min_ticks' + name]  = heatmap_graphs['heatmap_' + name].append("g")
@@ -596,8 +634,8 @@ var legendWidth = width - 200
     //   .style("fill", "#4F4F4F")
     //   .text("Context");
 
-    leg_min = d3.min(values[name], function(d){return d.value;})
-    leg_max = d3.max(values[name], function(d){return d.value;}) 
+    leg_min = d3.min(values[name], function(d){return d.value_scaled;})
+    leg_max = d3.max(values[name], function(d){return d.value_scaled;}) 
 
     console.log(leg_max)
 
@@ -1107,7 +1145,7 @@ defs.append("linearGradient")
               const curY = scales_out['yscale'].invert(y);
               const minY = Math.floor(curY);
               const maxY = Math.ceil(curY);
-              const legend_loc = legend_scales['legendScale' + name](d.value);
+              const legend_loc = legend_scales['legendScale' + name](d.value_scaled);
               if (values[name][minY] && values[name][maxY]) {
                 const yDelta = curY - minY;
                 const minP = values[name][minY].prediction;
@@ -1181,7 +1219,7 @@ defs.append("linearGradient")
 
 
                 d3.select("#legend" + name).select('.mouse-text3' + name)
-                  .text(d.value.toFixed(4))
+                  .text(d.value_scaled.toFixed(4))
                   .style("opacity", 0.5)
                   .style("text-transform", "uppercase")
                   .style("font", "9px arial")
@@ -1189,7 +1227,7 @@ defs.append("linearGradient")
 
                 d3.select("#my_dataviz" + name + "2").select('.tooltip')
                 // tooltip
-                  .html("<strong>Context:&nbsp</strong>" + d.value.toFixed(4) + "<br><strong>Input:&nbsp</strong>" + curPx.toFixed(4) + "MW<br><strong>Prediction:&nbsp</strong>" + curP.toFixed(4)  + "MW" + "<br><strong>Actual:&nbsp</strong>" + curP_true.toFixed(4)  + "MW")
+                  .html("<strong>Context:&nbsp</strong>" + d.value_scaled.toFixed(4) + "<br><strong>Input:&nbsp</strong>" + curPx.toFixed(4) + "MW<br><strong>Prediction:&nbsp</strong>" + curP.toFixed(4)  + "MW" + "<br><strong>Actual:&nbsp</strong>" + curP_true.toFixed(4)  + "MW")
                   .style("left", (d3.mouse(this)[0]+40) + "px")
                   .style("top", (d3.mouse(this)[1]) + "px")
                   .attr('cursor', 'crosshair')  
@@ -1256,6 +1294,7 @@ defs.append("linearGradient")
   dates_axes.push(axes_dates)
   dates_min_axes.push(axes_dates_min)
   dates_noon_axes.push(axes_dates_noon)
+  dates_noon_axes_ref.push(axes_dates_noon_date_ref)
 
   output_scales.push(scales_out)
   output_axes.push(axes_out)
@@ -1311,9 +1350,6 @@ defs.append("linearGradient")
         input_graphs[Object.keys(input_graphs)[idx]].select('.line' + current_chart).attr("d", input_lines[current_chart])
 
       
-
-
-
       // update svg heatmap chart /////////////////////////////////////////////////////////
 
         // d3.select("#my_dataviz" + name + "2").select("svg").attr("width", width)
@@ -1351,6 +1387,7 @@ defs.append("linearGradient")
         // dates_min_axes[idx]['yAxis'].scale(dates_scale[idx]['yscale']);
 
         dates_noon_axes[idx]['xAxis'].scale(dates_scale[idx]['xscale']);
+        dates_noon_axes_ref[idx]['xAxis'].scale(dates_scale[idx]['xscale']);
 
         axis_date_groups['svg_heat_Xdates' + current_chart].call(dates_axes[idx]['xAxis'])
         // axis_date_groups['svg_heat_Ydates' + current_chart].call(dates_axes[idx]['yAxis'])
@@ -1361,6 +1398,7 @@ defs.append("linearGradient")
         heatmap_graphs['heatmap_' + current_chart].select(".x.axis_dates" + current_chart).call(dates_axes[idx]['xAxis'])
         heatmap_graphs['heatmap_' + current_chart].select(".x.axis_dates_min" + current_chart).call(dates_min_axes[idx]['xAxis'])
         heatmap_graphs['heatmap_' + current_chart].select(".x.axis_dates_noon" + current_chart).call(dates_noon_axes[idx]['xAxis'])
+        heatmap_graphs['heatmap_' + current_chart].select(".x.axis_dates_noon_date_ref" + current_chart).call(dates_noon_axes_ref[idx]['xAxis'])
 
 
         // update svg output chart /////////////////////////////////////////////////////////
@@ -1493,8 +1531,8 @@ function width_check(current_width, current_height) {
 
   if (current_width <= 700) { 
     output_graph_width = current_height / 4
-    buffer = 75
-    main_graph_width = current_width - 112.5
+    buffer = 115
+    main_graph_width = current_width - 152.5
 
   }
   else {
