@@ -37,9 +37,9 @@ import h5py
 
 
 
-model_type ="solar"
+model_type ="demand"
 
-plot_temporal_attention = True
+plot_temporal_attention = False
 plot_spatial_attention = False
 
 plot_ref = 0
@@ -55,6 +55,10 @@ elif model_type == 'solar':
 elif model_type == 'price':
 	dataset_name = 'dataset_V2_DAprice.hdf5'
 
+# load scaler 
+scaler = load(open(f'scaler_{model_type}.pkl', 'rb'))
+
+
 
 # collect param sizes
 f = h5py.File(f"./Data/{model_type}/Processed_Data/{dataset_name}", "r")
@@ -65,6 +69,8 @@ labels = np.empty_like(f['train_set']['y_train'][0])
 x_len = f['train_set']['X1_train'].shape[0]
 y_len = f['train_set']['y_train'].shape[0]
 print('size parameters loaded')
+
+
 
 if model_type != "price":
 	height, width, channels = features.shape[0], features.shape[1], features.shape[2]
@@ -168,6 +174,13 @@ while (output_start + output_seq_size) <= len(y_train):
 x1, x2, x3, x4, y = np.array(seqX1), np.array(seqX2), np.array(seqX3), np.array(seqX4), np.array(seqY)
 times_in, times_out = np.array(times_in), np.array(times_out)
 f.close() 
+
+# scale actual values 
+y_idx = y.shape[0]
+y = scaler.inverse_transform(y.reshape(-1,1)).reshape(y_idx, Ty, 1)
+
+
+
 
 
 
@@ -300,7 +313,7 @@ for q in quantiles:
 		combined_outputs = np.concatenate(outputs, axis=1)
 		combined_temp_attn = np.concatenate(temporal_attns, axis=-1)
 		
-		total_pred[idx, : , :] = combined_outputs
+		total_pred[idx, : , :] = scaler.inverse_transform(combined_outputs[0,:,:])
 		total_temp[idx, : , :] = combined_temp_attn
 
 		if model_type != 'price':
@@ -446,8 +459,13 @@ quantile_temporal_attns['time_refs'] = time_refs
 # add x-input data 
 quantile_temporal_attns['input_features'] = x1
 
+
+
+
 # add true value for reference to prediction dictionary
 predictions['y_true'] = y
+
+
 
 
 # save results - forecasted timeseries matrix
