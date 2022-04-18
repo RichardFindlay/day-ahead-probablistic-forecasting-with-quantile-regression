@@ -144,8 +144,8 @@ function prob_forecast(file, ref, color_array) {
         // .attr("y", +margin.left)
         // .attr("x",  -margin.top + height/2)
         .attr("y", -margin.left + 25)
-        .attr("x", -height/2 + 25)
-        .text(ref +" (£)")
+        .attr("x", -height/2 + 60)
+        .text(ref +" (£/MW)")
         .style("font", "14px arial")
         .style("text-transform", "uppercase")
         // .attr("transform",
@@ -157,7 +157,7 @@ function prob_forecast(file, ref, color_array) {
         // .attr("y", +margin.left)
         // .attr("x",  -margin.top + height/2)
         .attr("y", -margin.left + 25)
-        .attr("x", -height/2 + 75)
+        .attr("x", -height/2 + 95)
         .text(ref +" Generation (MW)")
         .style("font", "14px arial")
         .style("text-transform", "uppercase")
@@ -168,7 +168,7 @@ function prob_forecast(file, ref, color_array) {
 
     // Add Y axis
     var y = d3.scaleLinear()
-      .domain([0, d3.max(data, function(d) { return +d.nine; }) * 1.05])
+      .domain([d3.min(data, function(d) { return +d.one; }) * 0.95, d3.max(data, function(d) { return +d.nine; }) * 1.05])
       .range([ height, 0 ])
     svg.append("g")
       .call(d3.axisLeft(y).tickSizeInner(-width).ticks(8).tickPadding(12.5))
@@ -340,8 +340,8 @@ function prob_forecast(file, ref, color_array) {
         .attr("class", "test-line")
         .style("fill", 'none')
         .attr("stroke", 'red') //D21404
-        .attr("stroke-width", 1.15)
-        .attr("stroke-opacity", 0.15)
+        .attr("stroke-width", 1.5)
+        .attr("stroke-opacity", 0.2)
         .attr("d", line)
 
     var totalLength = 50000
