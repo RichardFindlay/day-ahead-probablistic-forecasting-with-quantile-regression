@@ -37,7 +37,7 @@ import h5py
 
 
 
-model_type ="demand"
+model_type ="solar"
 
 plot_temporal_attention = False
 plot_spatial_attention = False
@@ -47,11 +47,11 @@ plot_ref = 0
 
 
 if model_type == 'wind':
-	dataset_name = 'train_set_V100_wind.hdf5'
+	dataset_name = 'dataset_wind.hdf5'
 elif model_type == 'demand':
-	dataset_name = 'dataset_V2_withtimefeatures_Demand.hdf5'
+	dataset_name = 'dataset_demand.hdf5'
 elif model_type == 'solar':
-	dataset_name = 'dataset_solar_v30.hdf5'
+	dataset_name = 'dataset_solar.hdf5'
 elif model_type == 'price':
 	dataset_name = 'dataset_V2_DAprice.hdf5'
 
@@ -81,7 +81,8 @@ times_in_dim = times_in.shape[-1]
 times_out_dim = times_out.shape[-1]
 
 
-quantiles = [0.1, 0.5, 0.9]
+# quantiles = [0.1, 0.5, 0.9]
+quantiles = [0.05, 0.15, 0.25, 0.35, 0.5, 0.65, 0.75, 0.85, 0.95]
 
 Tx = 336
 Ty = 48
@@ -116,21 +117,20 @@ if model_type != "price":
 f = h5py.File(f"./Data/{model_type}/Processed_Data/{dataset_name}", "r")
 
 
-
-set_type = 'train'
-
-X_train1 = f[f'{set_type}_set'][f'X1_{set_type}'][23808:25808]
-X_train2 = f[f'{set_type}_set'][f'X2_{set_type}'][23808:25808]
-X_train3 = f[f'{set_type}_set'][f'X3_{set_type}'][23808:25808]
-X_train4 = f[f'{set_type}_set'][f'X1_{set_type}'][23808:25808]
-y_train = f[f'{set_type}_set'][f'y_{set_type}'][23808:25808]
+set_type = 'test'
+# [23808:25808]
+X_train1 = f[f'{set_type}_set'][f'X1_{set_type}'][0:3000]
+X_train2 = f[f'{set_type}_set'][f'X2_{set_type}'][0:3000]
+X_train3 = f[f'{set_type}_set'][f'X3_{set_type}'][0:3000]
+X_train4 = f[f'{set_type}_set'][f'X1_{set_type}'][0:3000]
+y_train = f[f'{set_type}_set'][f'y_{set_type}'][0:3000]
 
 # get time relevant time references
 with open(f'./Data/{model_type}/Processed_Data/time_refs_{model_type}.pkl', 'rb') as time_file:
 	time_refs = load(time_file)
 
-input_times = time_refs[f'input_times_{set_type}'][23808:25808]
-output_times = time_refs[f'output_times_{set_type}'][23808:25808]
+input_times = time_refs[f'input_times_{set_type}'][0:3000]
+output_times = time_refs[f'output_times_{set_type}'][0:3000]
 
 
 
@@ -179,17 +179,9 @@ f.close()
 y_idx = y.shape[0]
 y = scaler.inverse_transform(y.reshape(-1,1)).reshape(y_idx, Ty, 1)
 
-
-
-
-
-
-
-
+# declare intial hidden states
 s0 = np.zeros((1, n_s))
 c0 = np.zeros((1, n_s))
-
-
 
 
 # function for decoder model
@@ -235,6 +227,9 @@ def inference_dec_model(quantile):
 	# final dense layer
 	pred_test = model.get_layer(f'dense1_q_{quantile}')(prediction)
 	pred_test = model.get_layer(f'dense3_q_{quantile}')(pred_test)
+
+	if set_type == "solar":
+		pred_test = model.get_layer(f'relu_act_q_{quantile}')(pred_test)
 
 	# Inference Model
 	if model_type != 'price':
@@ -459,14 +454,8 @@ quantile_temporal_attns['time_refs'] = time_refs
 # add x-input data 
 quantile_temporal_attns['input_features'] = x1
 
-
-
-
 # add true value for reference to prediction dictionary
 predictions['y_true'] = y
-
-
-
 
 # save results - forecasted timeseries matrix
 with open(f'forecasted_time_series_{model_type}.pkl', 'wb') as ts_file:
