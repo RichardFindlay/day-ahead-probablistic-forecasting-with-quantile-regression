@@ -36,29 +36,19 @@ import sys
 import h5py
 
 
-
+# choose model type to run test for
 model_type ="solar"
+
+# declare dataset file
+dataset_name = f'dataset_{model_type}.hdf5'
 
 plot_temporal_attention = False
 plot_spatial_attention = False
 
 plot_ref = 0
-# idx = 40
-
-
-if model_type == 'wind':
-	dataset_name = 'dataset_wind.hdf5'
-elif model_type == 'demand':
-	dataset_name = 'dataset_demand.hdf5'
-elif model_type == 'solar':
-	dataset_name = 'dataset_solar.hdf5'
-elif model_type == 'price':
-	dataset_name = 'dataset_V2_DAprice.hdf5'
 
 # load scaler 
 scaler = load(open(f'scaler_{model_type}.pkl', 'rb'))
-
-
 
 # collect param sizes
 f = h5py.File(f"./Data/{model_type}/Processed_Data/{dataset_name}", "r")
