@@ -283,6 +283,14 @@ def wind_data_processing(filepaths, labels, input_seq_size, output_seq_size, wor
 	print('interpolating data...')
 	feature_array = interpolate_4d(feature_array)
 
+	#normalise labels
+	scaler = StandardScaler(with_mean=False)
+	# scaler = MinMaxScaler()
+	labels[['MW']] = scaler.fit_transform(labels[['MW']])
+
+	# save the scaler for inference
+	dump(scaler, open('../../data/processed/wind/_scaler/scaler_wind.pkl', 'wb'))
+
 	# remove nan values - by day
 	outputs_mask = labels['MW'].isna().groupby(labels.index.normalize()).transform('any')
 
@@ -381,13 +389,13 @@ def wind_data_processing(filepaths, labels, input_seq_size, output_seq_size, wor
 	# print(times_out_hour_cos[:50])
 	labels['MW'] = labels['MW'].astype('float32')
 
-	#normalise labels
+	# #normalise labels
 	# scaler = StandardScaler(with_mean=False)
-	scaler = MinMaxScaler()
-	labels[['MW']] = scaler.fit_transform(labels[['MW']])
+	# # scaler = MinMaxScaler()
+	# labels[['MW']] = scaler.fit_transform(labels[['MW']])
 
-	# save the scaler for inference
-	dump(scaler, open('../../data/processed/wind/_scaler/scaler_wind.pkl', 'wb'))
+	# # save the scaler for inference
+	# dump(scaler, open('../../data/processed/wind/_scaler/scaler_wind.pkl', 'wb'))
 
 	# make single array for 
 	time_refs = [in_times, label_times]
@@ -486,6 +494,13 @@ def solar_data_processing(filepaths, labels, input_seq_size, output_seq_size, wo
 	# remove nan values - by day
 	outputs_mask = labels['MW'].isna().groupby(labels.index.normalize()).transform('any')
 
+	# scaler = MinMaxScaler()
+	scaler = StandardScaler(with_mean=False)
+	labels[['MW']] = scaler.fit_transform(labels[['MW']])
+
+	# save the scaler for inference
+	dump(scaler, open('../../data/processed/solar/_scaler/scaler_solar.pkl', 'wb'))
+
 	# apply mask, removing days with more than one nan value
 	feature_array = feature_array[~outputs_mask]
 	labels = labels[~outputs_mask]
@@ -571,11 +586,12 @@ def solar_data_processing(filepaths, labels, input_seq_size, output_seq_size, wo
 	times_out_year = np.expand_dims((df_times_outputs['year'].values - np.min(df_times_outputs['year'])) / (np.max(df_times_outputs['year']) - np.min(df_times_outputs['year'])), axis=-1)
 
 	# normalise y labels
-	scaler = MinMaxScaler()
-	labels[['MW']] = scaler.fit_transform(labels[['MW']])
+	# scaler = StandardScaler(with_mean=False)
+	# scaler = MinMaxScaler()
+	# labels[['MW']] = scaler.fit_transform(labels[['MW']])
 
-	# save the scaler for inference
-	dump(scaler, open('../../data/processed/solar/_scaler/scaler_solar.pkl', 'wb'))
+	# # save the scaler for inference
+	# dump(scaler, open('../../data/processed/solar/_scaler/scaler_solar.pkl', 'wb'))
 
 	in_times = label_times
 	time_refs = [in_times, label_times]
