@@ -16,6 +16,8 @@ from keras.utils.generic_utils import get_custom_objects
 from pickle import load
 import matplotlib.pyplot as plt
 import scipy
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+import h5py
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -26,12 +28,13 @@ from pickle import dump, load
 import geopandas
 import contextily as ctx
 
-from attentionlayer import attention
-import h5py
+# import custom classes 
+from _shared.attention_layer import attention
+
 
 
 # choose model type to run test for
-model_type ="solar"
+model_type ="wind"
 
 # declare dataset file
 dataset_name = f'dataset_{model_type}.hdf5'
@@ -200,7 +203,7 @@ def inference_dec_model(quantile):
 	pred_test = model.get_layer(f'dense1_q_{quantile}')(prediction)
 	pred_test = model.get_layer(f'dense3_q_{quantile}')(pred_test)
 
-	if set_type == "solar":
+	if model_type == "solar":
 		pred_test = model.get_layer(f'relu_act_q_{quantile}')(pred_test)
 
 	# Inference Model
@@ -220,6 +223,7 @@ for q in quantiles:
 # store predictions
 predictions = {}
 quantile_temporal_attns = {}
+quantile_spatial_attns = {}
 
 # loop through each sample, passing individually to model
 for q in quantiles:
@@ -231,6 +235,7 @@ for q in quantiles:
 	# empty arrays to store all results
 	total_pred = np.empty((x1.shape[0], Ty, 1))
 	total_temp = np.empty((x1.shape[0], Tx, Ty))
+
 	if model_type != 'price':
 		total_spat = np.empty((x1.shape[0], 320, Ty)) # 320 is the fixed spatial attention res
 
@@ -277,6 +282,7 @@ for q in quantiles:
 
 		combined_outputs = np.concatenate(outputs, axis=1)
 		combined_temp_attn = np.concatenate(temporal_attns, axis=-1)
+		combined_spat_attn = np.concatenate(spatial_attns, axis=-1)
 		
 		total_pred[idx, : , :] = scaler.inverse_transform(combined_outputs[0,:,:])
 		total_temp[idx, : , :] = combined_temp_attn
@@ -287,6 +293,7 @@ for q in quantiles:
 
 	predictions[f'{q}'] = total_pred
 	quantile_temporal_attns[f'{q}'] = total_temp
+	quantile_spatial_attns[f'{q}'] = total_spat
 
 # plot predictions for specified index
 for idx, (key, values) in enumerate(predictions.items()):
@@ -405,6 +412,56 @@ if plot_spatial_attention is True:
 	# plot attention weights
 	plot_spatial_predictions(att_w_spat, 'Spatial Context', 16, 20, 48)
 
+# function to evaluate quantile performance
+def evaluate_predictions(predictions):
+	'''
+	Theory from Bazionis & Georgilakis (2021): https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwiUprb39qbyAhXNgVwKHWVsA50QFnoECAMQAQ&url=https%3A%2F%2Fwww.mdpi.com%2F2673-4826%2F2%2F1%2F2%2Fpdf&usg=AOvVaw1AWP-zHuNGrw8pgDfUS09e
+	func to caluclate probablistic forecast performance
+	Prediction Interval Coverage Probability (PICP)
+	Prediction Interval Nominla Coverage (PINC)
+	Average Coverage Error (ACE) [PICP - PINC]
+	'''
+	test_len = len(predictions['y_true'])
+
+	y_true = predictions['y_true'].ravel()
+	lower_pred = predictions[list(predictions.keys())[0]].ravel()
+	upper_pred = predictions[list(predictions.keys())[-1]].ravel()
+	central_case = predictions[0.5].ravel()
+
+	alpha = upper_pred - lower_pred
+
+	# picp_ind = np.sum((y_true > lower_pred) & (y_true <= upper_pred))
+
+	# print(picp_ind)
+
+	picp = (np.sum((y_true > lower_pred) & (y_true <= upper_pred)) / test_len) 
+
+	pinc = 100 * (1 - (alpha))
+
+	ace = picp - pinc # closer to '0' higher the reliability
+
+	r = np.max(y_true) - np.min(y_true)
+
+	# PI normalised width
+	pinaw = (1 / (test_len * r)) * np.sum((upper_pred - lower_pred))
+
+	# PI normalised root-mean-sqaure width 
+	pinrw = (1/r) * np.sqrt( (1/test_len) * np.sum((upper_pred - lower_pred)**2) )
+
+	# calculate MAE & RMSE
+	mae = mean_absolute_error(y_true, central_case)
+	rmse = mean_squared_error(y_true, central_case)
+
+	# create pandas df
+	metrics = pd.DataFrame({'PICP': picp, 'PINC': pinc, 'ACE': ace, 'PINAW': pinaw, 'PINRW': pinrw, 'MAE': mae, 'RMSE': rmse}, index={alpha})
+	metrics.index.name = 'Prediction_Interval'
+
+	print(metrics)
+
+	return eval_metrics
+
+
+
 # add date references to result dictionaries
 time_refs = {'input_times': times_in, 'output_times': times_out}
 
@@ -417,16 +474,21 @@ quantile_temporal_attns['input_features'] = x1
 # add true value for reference to prediction dictionary
 predictions['y_true'] = y
 
+# performance evaluation
+# evaluate_predictions(predictions)
+
+
 # save results - forecasted timeseries matrix
 with open(f'forecasted_time_series_{model_type}.pkl', 'wb') as ts_file:
 	dump(predictions, ts_file)
 
-# save results - forecasted tempotal attention matrix
+# save results - forecasted temporal attention matrix
 with open(f'attention_data_{model_type}.pkl', 'wb') as attention_file:
 	dump(quantile_temporal_attns, attention_file)
 
-
-
+# save results - forecasted spatial attention matrix
+with open(f'attention_data_{model_type}.pkl', 'wb') as spatial_file:
+	dump(quantile_spatial_attns, spatial_file)
 
 
 
