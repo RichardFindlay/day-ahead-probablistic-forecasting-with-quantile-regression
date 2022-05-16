@@ -40,7 +40,7 @@ import h5py
 model_type ="solar"
 
 # declare dataset file
-dataset_name = f'dataset_{model_type}.hdf5'
+dataset_name = f'dataset_{model_type}_v2.hdf5'
 
 plot_temporal_attention = False
 plot_spatial_attention = False
@@ -48,7 +48,7 @@ plot_spatial_attention = False
 plot_ref = 0
 
 # load scaler 
-scaler = load(open(f'scaler_{model_type}.pkl', 'rb'))
+scaler = load(open(f'scaler_{model_type}_v2.pkl', 'rb'))
 
 # collect param sizes
 f = h5py.File(f"./Data/{model_type}/Processed_Data/{dataset_name}", "r")
@@ -61,7 +61,6 @@ y_len = f['train_set']['y_train'].shape[0]
 print('size parameters loaded')
 
 
-
 if model_type != "price":
 	height, width, channels = features.shape[0], features.shape[1], features.shape[2]
 else:
@@ -71,15 +70,15 @@ times_in_dim = times_in.shape[-1]
 times_out_dim = times_out.shape[-1]
 
 
-# quantiles = [0.1, 0.5, 0.9]
 quantiles = [0.05, 0.15, 0.25, 0.35, 0.5, 0.65, 0.75, 0.85, 0.95]
+# quantiles = [0.5]
 
 Tx = 336
 Ty = 48
 n_s = 32
 
 input_seq_size = Tx
-output_seq_size =Ty
+output_seq_size = Ty
 
 # create swish activation object
 from keras.backend import sigmoid
@@ -106,24 +105,19 @@ if model_type != "price":
 # load and process data
 f = h5py.File(f"./Data/{model_type}/Processed_Data/{dataset_name}", "r")
 
-
 set_type = 'test'
-# [23808:25808]
-X_train1 = f[f'{set_type}_set'][f'X1_{set_type}'][0:3000]
-X_train2 = f[f'{set_type}_set'][f'X2_{set_type}'][0:3000]
-X_train3 = f[f'{set_type}_set'][f'X3_{set_type}'][0:3000]
-X_train4 = f[f'{set_type}_set'][f'X1_{set_type}'][0:3000]
-y_train = f[f'{set_type}_set'][f'y_{set_type}'][0:3000]
+X_train1 = f[f'{set_type}_set'][f'X1_{set_type}']
+X_train2 = f[f'{set_type}_set'][f'X2_{set_type}']
+X_train3 = f[f'{set_type}_set'][f'X3_{set_type}']
+X_train4 = f[f'{set_type}_set'][f'X1_{set_type}']
+y_train = f[f'{set_type}_set'][f'y_{set_type}']
 
 # get time relevant time references
-with open(f'./Data/{model_type}/Processed_Data/time_refs_{model_type}.pkl', 'rb') as time_file:
+with open(f'./Data/{model_type}/Processed_Data/time_refs_{model_type}_v2.pkl', 'rb') as time_file:
 	time_refs = load(time_file)
 
-input_times = time_refs[f'input_times_{set_type}'][0:3000]
-output_times = time_refs[f'output_times_{set_type}'][0:3000]
-
-
-
+input_times = time_refs[f'input_times_{set_type}']
+output_times = time_refs[f'output_times_{set_type}']
 
 time_file.close()  
 
@@ -180,6 +174,7 @@ def inference_dec_model(quantile):
 	# Encoder outputs for setup
 	ccn_enc_output_test = Input(shape=(320, 128))
 	lstm_enc_output_test = Input(shape=(Tx, n_s*4)) #+ times_in_dim
+	prev_prediction = Input(shape=(1, 1))
 
 	# Decoder Input
 	times_in = Input(shape=(1, times_in_dim))
@@ -187,6 +182,7 @@ def inference_dec_model(quantile):
 	out_nwp = Input(shape=(1, channels-1))
 	s_state0 = Input(shape=(32,))
 	c_state0 = Input(shape=(32,))
+
 	if model_type != "price":
 		decoder_input = Input(shape=(1, times_out_dim + (channels-1)))
 	else:
@@ -207,9 +203,10 @@ def inference_dec_model(quantile):
 		context = concatenate([context, context_spat_test], axis=-1) 
 
 	# decoder_input = concatenate([out_nwp, times_out])
+	decoder_input_with_prev = concatenate([prev_prediction, decoder_input])
 
 	# Decoder inference
-	dec_output, s_state, c_state = model.get_layer(f'decoder_q_{quantile}')(decoder_input, initial_state=[s_state0, c_state0])
+	dec_output, s_state, c_state = model.get_layer(f'decoder_q_{quantile}')(decoder_input_with_prev, initial_state=[s_state0, c_state0])
 
 	# combine context and prediction
 	prediction = concatenate([context, K.expand_dims(dec_output,axis=1)])
@@ -218,14 +215,14 @@ def inference_dec_model(quantile):
 	pred_test = model.get_layer(f'dense1_q_{quantile}')(prediction)
 	pred_test = model.get_layer(f'dense3_q_{quantile}')(pred_test)
 
-	if set_type == "solar":
+	if model_type == "solar":
 		pred_test = model.get_layer(f'relu_act_q_{quantile}')(pred_test)
 
 	# Inference Model
 	if model_type != 'price':
-		deoceder_test_model = Model(inputs=[times_in, times_out, out_nwp, decoder_input, ccn_enc_output_test, lstm_enc_output_test, s_state0, c_state0], outputs=[pred_test, s_state, c_state, attn_weights_temp_test, attn_weights_spat_test])  
+		deoceder_test_model = Model(inputs=[times_in, times_out, out_nwp, decoder_input, ccn_enc_output_test, lstm_enc_output_test, prev_prediction, s_state0, c_state0], outputs=[pred_test, s_state, c_state, attn_weights_temp_test, attn_weights_spat_test])  
 	else:
-		deoceder_test_model = Model(inputs=[times_in, times_out, out_nwp, decoder_input, lstm_enc_output_test, s_state0, c_state0], outputs=[pred_test, s_state, c_state, attn_weights_temp_test])  
+		deoceder_test_model = Model(inputs=[times_in, times_out, out_nwp, decoder_input, lstm_enc_output_test, prev_prediction, s_state0, c_state0], outputs=[pred_test, s_state, c_state, attn_weights_temp_test])  
 	return deoceder_test_model
 
 # dictionary to store decoder models
@@ -245,8 +242,8 @@ quantile_temporal_attns = {}
 for q in quantiles:
 	print(q)
 
-	# set hidden states to zero
-	s_state, c_state = s0, c0
+	# # set hidden states to zero
+	# s_state, c_state = s0, c0
 
 	# empty arrays to store all results
 	total_pred = np.empty((x1.shape[0], Ty, 1))
@@ -256,7 +253,13 @@ for q in quantiles:
 
 	decoder = decoder_models[f'{q}']
 
+	# intial_in = np.average(x1[0:1], axis=(2,3))
+	# prev_prediction = intial_in[:,-1:,0:1] # <- maybe move this up for wind
+
 	for idx in range(x1.shape[0]): # loop through each sample, to keep track of hidden states
+
+		# set hidden states to zero
+		s_state, c_state = s0, c0
 
 		# create empty results for results per sample
 		outputs = []
@@ -271,6 +274,11 @@ for q in quantiles:
 			intial_in = np.average(x1[idx:idx+1], axis=(2,3))
 		else:
 			intial_in = x1[idx:idx+1]
+
+		if model_type != 'price':
+			prev_prediction = intial_in[:,-1:,0:1]
+		else:
+			prev_prediction = intial_in[:,-1:,-1:]
 
 		for ts in range(Ty):
 
@@ -287,10 +295,12 @@ for q in quantiles:
 					decoder_input = x2[idx:idx+1,-1:,:]
 
 			if model_type != 'price':  
-				pred, s_state, c_state, attn_weights_temp_test, attn_weights_spat_test = decoder([x2[idx:idx+1,ts:ts+1,:], x3[idx:idx+1,ts:ts+1,:], x4[idx:idx+1,ts:ts+1,:], decoder_input, ccn_enc_output, lstm_enc_output, s_state, c_state])
+				pred, s_state, c_state, attn_weights_temp_test, attn_weights_spat_test = decoder([x2[idx:idx+1,ts:ts+1,:], x3[idx:idx+1,ts:ts+1,:], x4[idx:idx+1,ts:ts+1,:], decoder_input, ccn_enc_output, lstm_enc_output, prev_prediction, s_state, c_state])
 				spatial_attns.append(attn_weights_spat_test)
 			else:
-				pred, s_state, c_state, attn_weights_temp_test = decoder([x2[idx:idx+1,ts:ts+1,:], x3[idx:idx+1,ts:ts+1,:], x4[idx:idx+1,ts:ts+1,:], decoder_input, lstm_enc_output, s_state, c_state])
+				pred, s_state, c_state, attn_weights_temp_test = decoder([x2[idx:idx+1,ts:ts+1,:], x3[idx:idx+1,ts:ts+1,:], x4[idx:idx+1,ts:ts+1,:], decoder_input, lstm_enc_output, prev_prediction, s_state, c_state])
+
+			prev_prediction = pred
 
 			outputs.append(pred)
 			temporal_attns.append(attn_weights_temp_test)
@@ -299,6 +309,7 @@ for q in quantiles:
 		combined_temp_attn = np.concatenate(temporal_attns, axis=-1)
 		
 		total_pred[idx, : , :] = scaler.inverse_transform(combined_outputs[0,:,:])
+		# total_pred[idx, : , :] = combined_outputs[0,:,:]
 		total_temp[idx, : , :] = combined_temp_attn
 
 		if model_type != 'price':
@@ -433,6 +444,54 @@ if plot_spatial_attention is True:
 	# plot attention weights
 	plot_spatial_predictions(att_w_spat, 'Spatial Context', 16, 20, 48)
 
+# function to evaluate quantile performance
+def evaluate_predictions(predictions):
+	'''
+	Theory from Bazionis & Georgilakis (2021): https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwiUprb39qbyAhXNgVwKHWVsA50QFnoECAMQAQ&url=https%3A%2F%2Fwww.mdpi.com%2F2673-4826%2F2%2F1%2F2%2Fpdf&usg=AOvVaw1AWP-zHuNGrw8pgDfUS09e
+	func to caluclate probablistic forecast performance
+	Prediction Interval Coverage Probability (PICP)
+	Prediction Interval Nominla Coverage (PINC)
+	Average Coverage Error (ACE) [PICP - PINC]
+	'''
+	test_len = len(predictions['y_true'])
+
+	y_true = predictions['y_true'].ravel()
+	lower_pred = predictions[list(predictions.keys())[0]].ravel()
+	upper_pred = predictions[list(predictions.keys())[-1]].ravel()
+	central_case = predictions[0.5].ravel()
+
+	alpha = upper_pred - lower_pred
+
+	# picp_ind = np.sum((y_true > lower_pred) & (y_true <= upper_pred))
+
+	# print(picp_ind)
+
+	picp = (np.sum((y_true > lower_pred) & (y_true <= upper_pred)) / test_len) 
+
+	pinc = 100 * (1 - (alpha))
+
+	ace = picp - pinc # closer to '0' higher the reliability
+
+	r = np.max(y_true) - np.min(y_true)
+
+	# PI normalised width
+	pinaw = (1 / (test_len * r)) * np.sum((upper_pred - lower_pred))
+
+	# PI normalised root-mean-sqaure width 
+	pinrw = (1/r) * np.sqrt( (1/test_len) * np.sum((upper_pred - lower_pred)**2) )
+
+	# calculate MAE & RMSE
+	mae = mean_absolute_error(y_true, central_case)
+	rmse = mean_squared_error(y_true, central_case)
+
+	# create pandas df
+	metrics = pd.DataFrame({'PICP': picp, 'PINC': pinc, 'ACE': ace, 'PINAW': pinaw, 'PINRW': pinrw, 'MAE': mae, 'RMSE': rmse}, index={alpha})
+	metrics.index.name = 'Prediction_Interval'
+
+	print(metrics)
+
+	return eval_metrics
+
 
 
 # add date references to result dictionaries
@@ -447,17 +506,22 @@ quantile_temporal_attns['input_features'] = x1
 # add true value for reference to prediction dictionary
 predictions['y_true'] = y
 
+# evaluate performance of model 
+# evaluate_predictions(predictions)
+
 # save results - forecasted timeseries matrix
 with open(f'forecasted_time_series_{model_type}.pkl', 'wb') as ts_file:
 	dump(predictions, ts_file)
-
 
 # save results - forecasted tempotal attention matrix
 with open(f'attention_data_{model_type}.pkl', 'wb') as attention_file:
 	dump(quantile_temporal_attns, attention_file)
 
+# save results - forecasted spatial attention matrix
+# with open(f'attention_data_{model_type}.pkl', 'wb') as spatial_file:
+# 	dump(quantile_spatial_attns, spatial_file)
 
-
+print('results saved')
 
 
 
