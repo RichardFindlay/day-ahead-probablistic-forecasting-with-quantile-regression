@@ -9,18 +9,21 @@ from sklearn.preprocessing import MinMaxScaler
 
 
 # forecasting model
-type = 'solar' 
+type = 'demand' 
 
 # select start example index reference, 7-days plotted from here
-ex_idx = 0 
+ex_idx = 50
 
 # load prediction data
-with open(f'forecasted_time_series_{type}.pkl', 'rb') as forecast_data:
+with open(f'../../results/{type}/forecasted_time_series_{type}.pkl', 'rb') as forecast_data:
 	predictions = load(forecast_data)
 
+print(len(predictions['0.5']))	
 
 # get start date  
 out_start_time = predictions['time_refs']['output_times'][ex_idx][0]
+
+print(out_start_time)
 
 # produce date range for week-long predictions
 ouput_sequence_len = 336 # (Half-Hours)
@@ -38,8 +41,6 @@ final_params = {'year': idx_ref,
 # loop through to write results for each quantile
 for q in list(predictions.keys())[:-2]:
 
-
-
 	final_params[f'q_{q[2:]}'] = predictions[str(q)][ex_idx:ex_idx+7, :, 0].reshape((-1))
 
 # add actual values for reference
@@ -47,10 +48,16 @@ final_params['actual'] = predictions['y_true'][ex_idx:ex_idx+7, :, 0].reshape((-
 
 print(final_params.keys())
 
-
 # convert to pandas df
 df = pd.DataFrame(dict([(keys ,pd.Series(values, dtype = 'object')) for keys, values in final_params.items()])) # set all as objects to avoid warning on empty cells
 
+# divide to GW
+if type != "price":
+	df.iloc[:,2:] = df.iloc[:,2:] / 1000
+
+# copy to clipboard
 df.to_clipboard()
 
-df.to_csv(f'quanile_prediction_results_{type}.csv', index=False)
+# save data to file
+df.to_csv(f'../../results/{type}/quantile_prediction_results_{type}.csv', index=False)
+
