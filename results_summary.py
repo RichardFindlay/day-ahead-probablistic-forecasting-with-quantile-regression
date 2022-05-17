@@ -6,12 +6,19 @@ from pickle import load
 
 
 # declare model type
-model_type = 'solar'
+model_type = 'demand'
 
 # load quantile prediction results
 with open(f'../../results/{model_type}/forecasted_time_series_{model_type}.pkl', 'rb') as forecast_data:
 	results = load(forecast_data)
 
+
+def mean_absolute_percentage_error(y_true, y_pred): 
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+
+def smape(y_true, y_pred):
+    return 100/len(y_true) * np.sum(2 * np.abs(y_pred - y_true) / (np.abs(y_true) + np.abs(y_pred)))
 
 # function to evaluate general & quantile performance
 def evaluate_predictions(predictions):
@@ -35,7 +42,7 @@ def evaluate_predictions(predictions):
 
 	# picp_ind = np.sum((y_true > lower_pred) & (y_true <= upper_pred))
 
-	picp = ((np.sum((y_true > lower_pred) & (y_true <= upper_pred))) / (test_len * 48) ) * 100
+	picp = ((np.sum((y_true >= lower_pred) & (y_true <= upper_pred))) / (test_len * 48) ) * 100
 
 	pinc = alpha * 100
 
@@ -54,11 +61,23 @@ def evaluate_predictions(predictions):
 	mape = mean_absolute_percentage_error(y_true, central_case)
 	rmse = mean_squared_error(y_true, central_case, squared=False)
 
+	# calculate MAE & RMSE for persistence
+	persistence_prediction = predictions['y_true'][:-1].ravel()
+	persistence_true = predictions['y_true'][1:].ravel()
+
+	mae_base = mean_absolute_error(persistence_true, persistence_prediction)
+	mape_base = mean_absolute_percentage_error(persistence_true, persistence_prediction)
+	rmse_base = mean_squared_error(persistence_true, persistence_prediction, squared=False)
+
 	# create pandas df
 	metrics = pd.DataFrame({'PICP': picp, 'PINC': pinc, 'ACE': ace, 'PINAW': pinaw, 'PINRW': pinrw, 'MAE': mae, 'MAPE': mape, 'RMSE': rmse}, index={alpha})
 	metrics.index.name = 'Prediction_Interval'
 
+	# create pandas df for baseline 
+	metrics_base = pd.DataFrame({'MAE': mae_base, 'MAPE': mape_base, 'RMSE': rmse_base}, index={'basline_persistence'})
+
 	print(metrics.to_string())
+	print(metrics_base.to_string())
 
 	# save performance metrics
 	metrics.to_csv(f'../../results/{model_type}/preformance_summary_{model_type}.csv', index=False)
@@ -87,7 +106,7 @@ def correlation_analysis(X, Y):
 
 	return 
 
-
-
 # call evaluate performance
 evaluate_predictions(results)
+
+
