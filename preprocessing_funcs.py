@@ -283,16 +283,9 @@ def wind_data_processing(filepaths, labels, input_seq_size, output_seq_size, wor
 	print('interpolating data...')
 	feature_array = interpolate_4d(feature_array)
 
-	#normalise labels
-	scaler = StandardScaler(with_mean=False)
-	# scaler = MinMaxScaler()
-	labels[['MW']] = scaler.fit_transform(labels[['MW']])
-
-	# save the scaler for inference
-	dump(scaler, open('../../data/processed/wind/_scaler/scaler_wind.pkl', 'wb'))
-
 	# remove nan values - by day
-	outputs_mask = labels['MW'].isna().groupby(labels.index.normalize()).transform('any')
+	# outputs_mask = labels['MW'].isna().groupby(labels.index.normalize()).transform('any')
+	outputs_mask = labels['MW'].isna()
 
 	# apply mask, removing days with more than one nan value
 	feature_array = feature_array[~outputs_mask]
@@ -389,13 +382,13 @@ def wind_data_processing(filepaths, labels, input_seq_size, output_seq_size, wor
 	# print(times_out_hour_cos[:50])
 	labels['MW'] = labels['MW'].astype('float32')
 
-	# #normalise labels
-	# scaler = StandardScaler(with_mean=False)
-	# # scaler = MinMaxScaler()
-	# labels[['MW']] = scaler.fit_transform(labels[['MW']])
+	#normalise labels
+	scaler = StandardScaler(with_mean=False)
+	# scaler = MinMaxScaler()
+	labels[['MW']] = scaler.fit_transform(labels[['MW']])
 
-	# # save the scaler for inference
-	# dump(scaler, open('../../data/processed/wind/_scaler/scaler_wind.pkl', 'wb'))
+	# save the scaler for inference
+	dump(scaler, open('../../data/processed/wind/_scaler/scaler_wind_v2.pkl', 'wb'))
 
 	# make single array for 
 	time_refs = [in_times, label_times]
@@ -419,7 +412,7 @@ def wind_data_processing(filepaths, labels, input_seq_size, output_seq_size, wor
 
 
 	# decalre train test split
-	test_split_seq = 2000 # use the last 100 days, around 10%
+	test_split_seq = 8544 # use the last 100 days, around 10%
 	
 	# create dataset
 	dataset = {
@@ -494,12 +487,6 @@ def solar_data_processing(filepaths, labels, input_seq_size, output_seq_size, wo
 	# remove nan values - by day
 	outputs_mask = labels['MW'].isna().groupby(labels.index.normalize()).transform('any')
 
-	# scaler = MinMaxScaler()
-	scaler = StandardScaler(with_mean=False)
-	labels[['MW']] = scaler.fit_transform(labels[['MW']])
-
-	# save the scaler for inference
-	dump(scaler, open('../../data/processed/solar/_scaler/scaler_solar.pkl', 'wb'))
 
 	# apply mask, removing days with more than one nan value
 	feature_array = feature_array[~outputs_mask]
@@ -586,12 +573,12 @@ def solar_data_processing(filepaths, labels, input_seq_size, output_seq_size, wo
 	times_out_year = np.expand_dims((df_times_outputs['year'].values - np.min(df_times_outputs['year'])) / (np.max(df_times_outputs['year']) - np.min(df_times_outputs['year'])), axis=-1)
 
 	# normalise y labels
-	# scaler = StandardScaler(with_mean=False)
+	scaler = StandardScaler(with_mean=False)
 	# scaler = MinMaxScaler()
-	# labels[['MW']] = scaler.fit_transform(labels[['MW']])
+	labels[['MW']] = scaler.fit_transform(labels[['MW']])
 
-	# # save the scaler for inference
-	# dump(scaler, open('../../data/processed/solar/_scaler/scaler_solar.pkl', 'wb'))
+	# save the scaler for inference
+	dump(scaler, open('../../data/processed/solar/_scaler/scaler_solar_v2.pkl', 'wb'))
 
 	in_times = label_times
 	time_refs = [in_times, label_times]
@@ -615,7 +602,7 @@ def solar_data_processing(filepaths, labels, input_seq_size, output_seq_size, wo
 	# testing input 24hr and 48hr input data - convert to 48hrs for X2
 	input_times = output_times
 
-	test_split_seq = 4800 # use the last 100 days, around 10%
+	test_split_seq = 8544 # use the last 100 days, around 10%
 	
 	# create dataset
 	dataset = {
@@ -756,6 +743,7 @@ def demand_data_processing(filepaths, labels, workingDir):
 	df_times_outputs['day_of_year'] = labels.index.dayofyear - 1
 	df_times_outputs['weekend'] = df_times_outputs['day_of_week'].apply(lambda x: 1 if x>=5 else 0)
 
+
 	# account for bank / public holidays
 	start_date = labels.index.min()
 	end_date = labels.index.max()
@@ -800,11 +788,11 @@ def demand_data_processing(filepaths, labels, workingDir):
 	times_out_DoY_cos = np.expand_dims(np.cos(2*np.pi*df_times_outputs['day_of_year']/np.max(df_times_outputs['day_of_year'])), axis=-1)		
 
 	#normalise labels
-	scaler = MinMaxScaler()
+	scaler = StandardScaler(with_mean=False)
 	labels[['MW']] = scaler.fit_transform(labels[['MW']])
 
 	# save the scaler for inference
-	dump(scaler, open('../../data/processed/demand/_scaler/scaler_demand.pkl', 'wb'))
+	dump(scaler, open('../../data/processed/demand/_scaler/scaler_demand_v2.pkl', 'wb'))
 
 	time_refs = [in_times, label_times]
 
@@ -843,7 +831,7 @@ def demand_data_processing(filepaths, labels, workingDir):
 	# train_set = to_float32(train_set)
 	# test_set = to_float32(test_set)	
 
-	test_split_seq = 4800 # use the last 100 days, around 10%
+	test_split_seq = 8544 # use the last 100 days, around 10%
 	
 	# input_test_seq =  test_split_seq + (input_seq_size - 1)
 	# output_test_seq = test_split_seq + (output_seq_size - 1)
