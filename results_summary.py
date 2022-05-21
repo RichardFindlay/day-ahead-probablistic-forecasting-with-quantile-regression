@@ -6,16 +6,20 @@ from pickle import load
 
 
 # declare model type
-model_type = 'demand'
+model_type = 'seq2seq' # - bilstm, seq2seq, seq2seq+temporal, seq2seq+temporal+spatial
+
+# desired var to run analysis
+forecast_var = 'price'
 
 # load quantile prediction results
-with open(f'../../results/{model_type}/forecasted_time_series_{model_type}.pkl', 'rb') as forecast_data:
+with open(f'../../results/{forecast_var}/{model_type}/forecasted_time_series_{forecast_var}_{model_type}.pkl', 'rb') as forecast_data:
 	results = load(forecast_data)
 
 
 def mean_absolute_percentage_error(y_true, y_pred): 
-    y_true, y_pred = np.array(y_true), np.array(y_pred)
-    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+
+	y_true, y_pred = np.array(y_true), np.array(y_pred)
+	return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
 def smape(y_true, y_pred):
     return 100/len(y_true) * np.sum(2 * np.abs(y_pred - y_true) / (np.abs(y_true) + np.abs(y_pred)))
@@ -80,7 +84,7 @@ def evaluate_predictions(predictions):
 	print(metrics_base.to_string())
 
 	# save performance metrics
-	metrics.to_csv(f'../../results/{model_type}/preformance_summary_{model_type}.csv', index=False)
+	metrics.to_csv(f'../../results/{forecast_var}/{model_type}/preformance_summary_{forecast_var}_{model_type}.csv', index=False)
 
 	return metrics
 
