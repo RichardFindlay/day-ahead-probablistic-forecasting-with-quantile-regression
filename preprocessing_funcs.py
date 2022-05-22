@@ -388,7 +388,7 @@ def wind_data_processing(filepaths, labels, input_seq_size, output_seq_size, wor
 	labels[['MW']] = scaler.fit_transform(labels[['MW']])
 
 	# save the scaler for inference
-	dump(scaler, open('../../data/processed/wind/_scaler/scaler_wind_v2.pkl', 'wb'))
+	dump(scaler, open('../../data/processed/wind/_scaler/scaler_wind_v3.pkl', 'wb'))
 
 	# make single array for 
 	time_refs = [in_times, label_times]
@@ -573,12 +573,12 @@ def solar_data_processing(filepaths, labels, input_seq_size, output_seq_size, wo
 	times_out_year = np.expand_dims((df_times_outputs['year'].values - np.min(df_times_outputs['year'])) / (np.max(df_times_outputs['year']) - np.min(df_times_outputs['year'])), axis=-1)
 
 	# normalise y labels
-	scaler = StandardScaler(with_mean=False)
-	# scaler = MinMaxScaler()
+	# scaler = StandardScaler(with_mean=False)
+	scaler = MinMaxScaler()
 	labels[['MW']] = scaler.fit_transform(labels[['MW']])
 
 	# save the scaler for inference
-	dump(scaler, open('../../data/processed/solar/_scaler/scaler_solar_v2.pkl', 'wb'))
+	dump(scaler, open('../../data/processed/solar/_scaler/scaler_solar_v3.pkl', 'wb'))
 
 	in_times = label_times
 	time_refs = [in_times, label_times]
