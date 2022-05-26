@@ -1,16 +1,22 @@
 import keras
 from keras.models import load_model, model_from_json
+from keras.backend import sigmoid
+from tensorflow.keras.layers import Input, Activation, concatenate, Lambda
 import numpy as np
 import h5py
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
 from pickle import load, dump
 import matplotlib.pyplot as plt
+from keras.utils.generic_utils import get_custom_objects
 
+
+from keras.utils.generic_utils import get_custom_objects# import custom classes 
+from _shared.attention_layer import attention
 
 # script to produce test-set predictions for Bi-directional LSTM model
 
 # declare model type
-model_type = 'seq2seq' # - bilstm, seq2seq
+model_type = 'seq2seq+temporal' # - bilstm, seq2seq, seq2seq+temporal
 
 # indicate model type 
 forecast_var = 'demand'
@@ -18,8 +24,18 @@ forecast_var = 'demand'
 # quantiles - needed for key references - ensure aligns with trained model
 quantiles = [0.05, 0.15, 0.25, 0.35, 0.5, 0.65, 0.75, 0.85, 0.95]
 
+# define swish function for use within comptile model
+def swish(x, beta = 1):
+    return (x * sigmoid(beta * x))
+  
+# Below in place of swish you can take any custom key for the name 
+get_custom_objects().update({'swish': Activation(swish)})
+
 # load trainined model
-model = load_model(f'../../Models/{model_type}/{forecast_var}/q_all_{model_type}/{forecast_var}_{model_type}.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f)})
+if model_type != 'seq2seq+temporal':
+	model = load_model(f'../../Models/{model_type}/{forecast_var}/q_all_{model_type}/{forecast_var}_{model_type}.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f)})
+else:
+	model = load_model(f'../../Models/{model_type}/{forecast_var}/q_all_{model_type}/{forecast_var}_{model_type}.h5', custom_objects = {'<lambda>': lambda y,f: defined_loss(q,y,f), 'attention': attention, 'Activation': Activation(swish)})
 
 # load time references
 with open(f'../../data/processed/{forecast_var}/time_refs_{forecast_var}_v2.pkl', 'rb') as time_file:
@@ -80,7 +96,9 @@ scaler = load(open(f'../../data/processed/{forecast_var}/_scaler/scaler_{forecas
 
 # average inputs over spatial dimensions
 if forecast_var != 'price':
-	x1 = np.average(x1, axis=(2,3))
+	if model_type != 'seq2seq+temporal': 
+		x1 = np.average(x1, axis=(2,3))
+
 	x4 = np.average(x4, axis=(2,3))
 	x4 = x4[:,:,1:]
 else:
@@ -89,9 +107,16 @@ else:
 # cache test set length
 test_len = y.shape[0]
 
+# delcare intial hidden states
+s0 = np.zeros((y.shape[0], 32,))
+c0 = np.zeros((y.shape[0], 32,))
+
+
 print('predicting')
 if model_type == 'bilstm':
 	results = model.predict([x1, x2])
+elif model_type == 'seq2seq+temporal':
+	results = model.predict([x1, x2, x3, x4, s0, c0])
 else:
 	results = model.predict([x1, x2, x3, x4])
 
@@ -99,7 +124,7 @@ else:
 results_dict = {}
 
 # inverse transform predictions + transfer to dictionary
-for idx in range(len(results)):
+for idx in range(len(quantiles)):
 	results_dict[str(quantiles[idx])] = scaler.inverse_transform(results[idx].reshape(-1,1)).reshape(test_len, output_seq_size, 1)
 
 # inverse transform true values 
