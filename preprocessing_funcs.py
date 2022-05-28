@@ -284,8 +284,8 @@ def wind_data_processing(filepaths, labels, input_seq_size, output_seq_size, wor
 	feature_array = interpolate_4d(feature_array)
 
 	# remove nan values - by day
-	# outputs_mask = labels['MW'].isna().groupby(labels.index.normalize()).transform('any')
-	outputs_mask = labels['MW'].isna()
+	outputs_mask = labels['MW'].isna().groupby(labels.index.normalize()).transform('any')
+	# outputs_mask = labels['MW'].isna()
 
 	# apply mask, removing days with more than one nan value
 	feature_array = feature_array[~outputs_mask]
@@ -573,8 +573,8 @@ def solar_data_processing(filepaths, labels, input_seq_size, output_seq_size, wo
 	times_out_year = np.expand_dims((df_times_outputs['year'].values - np.min(df_times_outputs['year'])) / (np.max(df_times_outputs['year']) - np.min(df_times_outputs['year'])), axis=-1)
 
 	# normalise y labels
-	# scaler = StandardScaler(with_mean=False)
-	scaler = MinMaxScaler()
+	scaler = StandardScaler(with_mean=False)
+	# scaler = MinMaxScaler()
 	labels[['MW']] = scaler.fit_transform(labels[['MW']])
 
 	# save the scaler for inference
