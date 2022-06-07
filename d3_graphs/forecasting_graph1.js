@@ -112,11 +112,8 @@ function prob_forecast(file, ref, color_array) {
       .style("text-transform", "uppercase")
       .style("font-size", "14px")
       .style("font-style", "italic")
-      .style("opacity", 0.5)
-
+      .style("opacity", 1)
       .select(".domain").remove()
-
-
 
 
     // x-axis mini tick marks
@@ -143,9 +140,22 @@ function prob_forecast(file, ref, color_array) {
         .attr("text-anchor", "end")
         // .attr("y", +margin.left)
         // .attr("x",  -margin.top + height/2)
-        .attr("y", -margin.left + 25)
+        .attr("y", -margin.left + 35)
         .attr("x", -height/2 + 60)
         .text(ref +" (£/MW)")
+        .style("font", "14px arial")
+        .style("text-transform", "uppercase")
+        // .attr("transform",
+        //     "translate(" + (height/2) + ")")
+        .attr("transform", "rotate(-90)");
+    } else if (ref === "demand") {
+    svg.append("text")
+        .attr("text-anchor", "end")
+        // .attr("y", +margin.left)
+        // .attr("x",  -margin.top + height/2)
+        .attr("y", -margin.left + 35)
+        .attr("x", -height/2 + 60)
+        .text(ref +" Demand (GW)")
         .style("font", "14px arial")
         .style("text-transform", "uppercase")
         // .attr("transform",
@@ -156,9 +166,9 @@ function prob_forecast(file, ref, color_array) {
         .attr("text-anchor", "end")
         // .attr("y", +margin.left)
         // .attr("x",  -margin.top + height/2)
-        .attr("y", -margin.left + 25)
+        .attr("y", -margin.left + 35)
         .attr("x", -height/2 + 95)
-        .text(ref +" Generation (MW)")
+        .text(ref +" Generation (GW)")
         .style("font", "14px arial")
         .style("text-transform", "uppercase")
         // .attr("transform",
@@ -251,7 +261,7 @@ function prob_forecast(file, ref, color_array) {
 
     // Area generator
     var line = d3.line()
-      .curve(d3.curveMonotoneX)
+      // .curve(d3.curveMonotoneX)
       .x(function(d) { return x(d.data.date); })
       .y(function(d) { return y(d.data.actual); })
       
@@ -261,6 +271,18 @@ function prob_forecast(file, ref, color_array) {
       .curve(d3.curveMonotoneX)
       .x(function(d) { return x(d.data.date); })
       .y(function(d) { return y(d.data.five); })
+
+    // Area generator
+    var line3 = d3.line()
+      .curve(d3.curveMonotoneX)
+      .x(function(d) { return x(d.data.date); })
+      .y(function(d) { return y(d.data.one); })
+
+    // Area generator
+    var line4 = d3.line()
+      .curve(d3.curveMonotoneX)
+      .x(function(d) { return x(d.data.date); })
+      .y(function(d) { return y(d.data.nine); })
       
     //  graph colors
     var legendColors = d3.scaleOrdinal().range(color_array)
@@ -331,18 +353,7 @@ function prob_forecast(file, ref, color_array) {
         // // .on("mousemove", mousemove)
         // .on("mouseleave", mouseleave)
 
-    // actual, measured data
-    var path = svg
-      .selectAll("mylayers")
-      .data(stackedData)
-      .enter()
-      .append("path")
-        .attr("class", "test-line")
-        .style("fill", 'none')
-        .attr("stroke", 'red') //D21404
-        .attr("stroke-width", 1.5)
-        .attr("stroke-opacity", 0.2)
-        .attr("d", line)
+
 
     var totalLength = 50000
     var totalLength2 = area4.node().getTotalLength();
@@ -355,10 +366,34 @@ function prob_forecast(file, ref, color_array) {
       .append("path")
         .attr("class", "test-line")
         .style("fill", 'none')
-        .attr("stroke", legendColors(4))
-        .attr("stroke-width", 0.5)
+        .attr("stroke", "white")
+        .attr("stroke-width", 0.05)
         .attr("clip-path", "url(#clip)")
         .attr("d", line2)
+
+    var path3 = svg
+      .selectAll("mylayers")
+      .data(stackedData)
+      .enter()
+      .append("path")
+        .attr("class", "test-line")
+        .style("fill", 'none')
+        .attr("stroke", legendColors(4))
+        .attr("stroke-width", 0)
+        .attr("clip-path", "url(#clip)")
+        .attr("d", line3)
+
+    var path4 = svg
+      .selectAll("mylayers")
+      .data(stackedData)
+      .enter()
+      .append("path")
+        .attr("class", "test-line")
+        .style("fill", 'none')
+        .attr("stroke", legendColors(4))
+        .attr("stroke-width", 0)
+        .attr("clip-path", "url(#clip)")
+        .attr("d", line4)
 
     // var clip = svg.append("clipPath")
     //   .attr("id", "clip");
@@ -415,7 +450,18 @@ function prob_forecast(file, ref, color_array) {
         .attr("text-anchor", "left")
         .style("alignment-baseline", "middle")
 
-
+            // actual, measured data
+    var path = svg
+      .selectAll("mylayers")
+      .data(stackedData)
+      .enter()
+      .append("path")
+        .attr("class", "test-line")
+        .style("fill", 'none')
+        .attr("stroke", '#1c2f33') //D21404
+        .attr("stroke-width", 0.15)
+        .attr("stroke-opacity", 0.9)
+        .attr("d", line)
 
   // create cursor highlight //////////////////////////////////////
 
@@ -437,7 +483,7 @@ function prob_forecast(file, ref, color_array) {
         .style("opacity", 0)
 
       // var lines = document.getElementsByClassName('line');
-      var lines = [path, path2]
+      var lines = [path, path3, path4]
 
       var mousePerLine = mouseG.selectAll('.mouse-per-line')
         .data(data)
@@ -448,7 +494,7 @@ function prob_forecast(file, ref, color_array) {
       var res = sumstat.map(function(d){ return d.key })
       var color = d3.scaleOrdinal()
             .domain(res)
-            .range(['black','red'])
+            .range(['darkblue','darkblue','darkblue','darkblue'])
 
 
       mousePerLine.append("circle")
@@ -518,7 +564,7 @@ function prob_forecast(file, ref, color_array) {
           d3.select("#my_dataviz_" + ref)
             .selectAll(".mouse-per-line")
               .attr("transform", function(d, i) {
-                if (i >= 2){ return null };
+                if (i >= 4){ return null };
 
                 var xDate = x.invert(mouse[0])
                 time = d3.timeFormat("%H:%M %p")(xDate)
@@ -545,19 +591,26 @@ function prob_forecast(file, ref, color_array) {
                   else break; //position found
                 }
 
+                if (ref == 'price') {
+                  unit = ' £/MWh'
+                } else {
+                  unit = ' GW'
+                }
+
                 if (i === 0) {
                 d3.select(this).select('text')
-                  .text(y.invert(pos.y).toFixed(1) + " MW") 
+                  .text(y.invert(pos.y).toFixed(1) + unit) 
                   .attr("transform", "translate(10,0)")
                   .style("font", "18px arial")
-                  .style('fill', 'red')
+                  .style('fill', 'blue')
                 }  else {
                 d3.select(this).select('text')
-                  .text(y.invert(pos.y).toFixed(1) + " MW") 
+                  .text(y.invert(pos.y).toFixed(1) + unit) 
                   .attr("transform", "translate(-75,0)")
                   .style("font", "16px arial")
                   .style('fill', 'black');
                 }
+
                 d3.select(this).select('circle')
                   .style("opacity", 1)
                 var parseDate = d3.timeParse("%a %d");
@@ -632,18 +685,35 @@ function prob_forecast(file, ref, color_array) {
       n = n + (width / 7) - 0.5 
     }
 
-    //add y-axis tick marks to y-axis
-    var u 
-    for (u = 0; u < height; u++){
+    //add main tick marks to x-axis
+    var i 
+    for (i = (width / 7); i < width; i++){
       svg.append("line")
-      .attr("y1", u) 
-      .attr("x1", -5)
-      .attr("y2", u)
-      .attr("x2", 0)
-      .style("stroke-width", 1.0)
+      .attr("y1", height) 
+      .attr("x1", i )
+      .attr("y2", 0)
+      .attr("x2", i )
+      .style("stroke-width", 0.5)
+      .style("stroke-dasharray", ("3, 3"))
       .style("stroke", "#263238");
-      u = u + (height / 10) - 1
+      i = i + (width / 7) - 0.5
     }
+
+
+
+
+    //add y-axis tick marks to y-axis
+    // var u 
+    // for (u = 0; u < height; u++){
+    //   svg.append("line")
+    //   .attr("y1", u) 
+    //   .attr("x1", -5)
+    //   .attr("y2", u)
+    //   .attr("x2", 0)
+    //   .style("stroke-width", 1.0)
+    //   .style("stroke", "#263238");
+    //   u = u + (height / 9) - 1
+    // }
 
   })
 }
