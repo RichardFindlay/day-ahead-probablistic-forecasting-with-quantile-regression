@@ -57,7 +57,7 @@ var legend_axes = []
 
 
 
-function context_graph(context_data, output_data, name) {
+function context_graph(context_data, name) {
 
   var scales = new Array()
   var axes = new Array()
@@ -83,8 +83,11 @@ function context_graph(context_data, output_data, name) {
   // width = 1500 
   height = 275
 
-  var width = parseInt(d3.select('.slideshow-container').style('width'), 10) + 150
-
+  if (parseInt(d3.select('.slideshow-container').style('width'), 10) > 800) {
+    var width = parseInt(d3.select('.slideshow-container').style('width'), 10) + 60
+  }  else {
+    var width = 750 + 60
+  }
 
   // append the svg object to the body of the page
  heatmap_graphs['heatmap_' + name] = d3.select("#my_dataviz" + name + "2")
@@ -180,10 +183,13 @@ scales['yscale'] = d3.scaleLinear()
 axes['xAxis'] = d3.axisBottom().scale(scales['xscale']).tickSizeOuter(0).tickValues([]);
 axes['yAxis'] = d3.axisLeft().scale(scales['yscale']).tickSizeOuter(0).tickValues([]);
 
-input_lines[name] = d3.line()
+input_lines[name] = d3.area()
                 .curve(d3.curveBasis)
-                .x(function(d) { return scales['xscale'](d.input_time_ref) })
-                .y(function(d) { return scales['yscale'](d.input_solar) })
+                .defined(function(d) { return d.input_values != 0; }) 
+                .defined(function(d) { return d.input_time_ref != 0; }) 
+                .x(function(d) { return scales['xscale'](d.input_time_ref); })
+                .y0(function(d) { return scales['yscale'](0); })
+                .y1(function(d) { return scales['yscale'](d.input_values); })
 
 
 // HEATMAP SETUP ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -260,16 +266,26 @@ scales_out['yscale'] = d3.scaleLinear()
 axes_out['xAxis'] = d3.axisBottom().scale(scales_out['xscale']).tickSizeOuter(0).tickValues([]);
 axes_out['yAxis'] = d3.axisLeft().scale(scales_out['yscale']).tickSizeOuter(0).tickValues([]);
 
-output_lines[name] = d3.line()
+output_lines[name] = d3.area()
                 .curve(d3.curveBasis)
-                .x(function(d) { return scales_out['xscale'](d.prediction) })
+                .defined(function(d) { return d.prediction != 0; }) 
+                .defined(function(d) { return d.output_time_ref != 0; }) 
+                .x1(function(d) { return scales_out['xscale'](d.prediction) })
+                .x0(function(d) { return scales_out['xscale'](0) })
                 .y(function(d) { return scales_out['yscale'](d.output_time_ref) })
 
 
-output_line_true[name] = d3.line()
+
+
+
+output_line_true[name] = d3.area()
                 .curve(d3.curveBasis)
-                .x(function(d) { return scales_out['xscale'](d.y_true) })
+                .defined(function(d) { return d.y_true != 0; }) 
+                .defined(function(d) { return d.output_time_ref != 0; }) 
+                .x1(function(d) { return scales_out['xscale'](d.y_true) })
+                .x0(function(d) { return scales_out['xscale'](0) })
                 .y(function(d) { return scales_out['yscale'](d.output_time_ref) })
+
 
 
 // ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -288,8 +304,7 @@ d3.csv(context_data,
              value: d.value = +d.value,
              input_time_ref: d.input_time_ref = +d.input_time_ref,
              input_time: d3.timeParse("%d/%m/%Y %H:%M")(d.input_time),
-             input_solar: d.input_solar = +d.input_solar,
-             input_cloud_cover: d.input_cloud_cover = +d.input_cloud_cover,
+             input_values: d.input_values = +d.input_values,
              output_time_ref: d.output_time_ref = +d.output_time_ref,
              output_time: d3.timeParse("%d/%m/%Y %H:%M")(d.output_time),
              prediction: d.prediction = +d.prediction,
@@ -298,8 +313,9 @@ d3.csv(context_data,
   },
 
 
-  function(data) {
 
+  function(data) {
+    console.log(data)
 
     values[name] =  data 
     // var data_output = data_out
@@ -444,7 +460,7 @@ heatmap_graphs_2['heatmap' + name] = heatmap_graphs['heatmap_' + name].selectAll
 // INPUT GRAPH
 
     scales['xscale'].domain([0, d3.max(values[name], function(d) { return +d.input_time_ref; })])
-    scales['yscale'].domain([0, d3.max(values[name], function(d) { return +d.input_solar; })])
+    scales['yscale'].domain([0, d3.max(values[name], function(d) { return +d.input_values; })])
 
     input_groups['svg_input_Xaxis' + name] = input_graphs['svg_input_' + name].append("g")
       .attr("class", "x axis" + name)
@@ -569,9 +585,6 @@ var colorInterpolateRainbow = d3.scaleLinear()
 // var min = d3.min(values[name], function(d){return d.value;})
 // var max = d3.max(values[name], function(d){return d.value;})
 
-console.log(min)
-console.log(max)
-console.log(colourRangeRainbow)
 
 
 var legendWidth = width - 200
@@ -637,12 +650,12 @@ var legendWidth = width - 200
     leg_min = d3.min(values[name], function(d){return d.value_scaled;})
     leg_max = d3.max(values[name], function(d){return d.value_scaled;}) 
 
-    console.log(leg_max)
+
 
     var colourRangeRainbow_leg = d3.range(leg_min, leg_max, leg_max / (coloursRainbow.length - 1));
     colourRangeRainbow_leg.push(leg_max);
 
-    console.log(colourRangeRainbow_leg)
+    // console.log(colourRangeRainbow_leg)
 
 
 
@@ -1101,14 +1114,14 @@ defs.append("linearGradient")
 
           heatmap_graphs_2['heatmap' + name].on('mousemove', () => {
 
-              const x = d3.event.layerX + margin.left + 10; 
+              const x = d3.event.layerX - 20; 
               const curX = scales['xscale'].invert(x);
               const minX = Math.floor(curX);
               const maxX = Math.ceil(curX);
               if (values[name][minX] && values[name][maxX]) {
                 const xDelta = curX - minX;
-                const minPx = values[name][minX].input_solar;
-                const maxPx = values[name][maxX].input_solar;
+                const minPx = values[name][minX].input_values;
+                const maxPx = values[name][maxX].input_values;
                 const curPx = minPx + (maxPx - minPx) * xDelta;
                 const yPos = scales['yscale'](curPx)
 
@@ -1309,9 +1322,11 @@ defs.append("linearGradient")
 
  var resize = function(e) {
 
-      var width = parseInt(d3.select('.slideshow-container').style('width'), 10) + 150
-
-      console.log(width)
+      if (parseInt(d3.select('.slideshow-container').style('width'), 10) > 800) {
+        var width = parseInt(d3.select('.slideshow-container').style('width'), 10) + 60
+      }  else {
+        var width = 850 + 60
+      }
 
       // grab names 
       for (var idx = 0; idx < (Object.keys(input_graphs).length); idx++) {
