@@ -1,4 +1,4 @@
-# DayAhead-Probablistic-Forecasting-Using-Qunatile-Regression
+# DayAhead-Probablistic-Forecasting-Using-Quantile-Regression
 
 Blog post write-up availiable at: https://www.richardfindlay.co.uk/probabilistic-forecasting-of-renewable-generation-and-wholesale-prices-with-quantile-regression-2
 
