@@ -25,6 +25,15 @@ The above figure illustrates the pinicale of the model complexity investigated a
 
 
 <p align="center">
-  <img src="https://github.com/RichardFindlay/day-ahead-probablistic-forecasting-with-quantile-regression/blob/main/visualisations/solar_spatial_attentions_animation.gif" />
+  <img src="https://github.com/RichardFindlay/day-ahead-probablistic-forecasting-with-quantile-regression/blob/main/visualisations/solar_spatial_attentions_animation.gif" width="200"/>
 </p>
 
+
+
+### Resources :gem:: 
++ [https://www.elexon.co.uk/documents/training-guidance/bsc-guidance-notes/bmrs-api-and-data-push-user-guide-2/](https://www.elexon.co.uk/documents/training-guidance/bsc-guidance-notes/bmrs-api-and-data-push-user-guide-2/)
++ [https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly](https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly)
++ [https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels?tab=overview](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels?tab=overview)
++ [https://colah.github.io/posts/2015-08-Understanding-LSTMs](https://colah.github.io/posts/2015-08-Understanding-LSTMs)
++ [https://blog.keras.io/a-ten-minute-introduction-to-sequence-to-sequence-learning-in-keras.html](https://blog.keras.io/a-ten-minute-introduction-to-sequence-to-sequence-learning-in-keras.html)
++ [https://colab.research.google.com/github/kmkarakaya/ML_tutorials/blob/master/seq2seq_Part_D_Encoder_Decoder_with_Teacher_Forcing.ipynb](https://colab.research.google.com/github/kmkarakaya/ML_tutorials/blob/master/seq2seq_Part_D_Encoder_Decoder_with_Teacher_Forcing.ipynb)
