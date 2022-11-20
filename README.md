@@ -1,5 +1,5 @@
-# DayAhead-Probablistic-Forecasting-with-Quantile-Regression
+# Probabilistic Forecasting of Renewable Energy Generation and Wholesale Market Prices Using Quantile Regression in Keras
+:rocket: Blog post on personal website :link: [Probabilistic Forecasting of Renewable Generation & Wholesale Prices with Quantile-Regression](https://richardfindlay.co.uk/probabilistic-forecasting-of-renewable-generation-and-wholesale-prices-with-quantile-regression-2)
 
-Blog post write-up availiable at: https://www.richardfindlay.co.uk/probabilistic-forecasting-of-renewable-generation-and-wholesale-prices-with-quantile-regression-2
-
-*Code links to be fully checked following re-organisation.
+![til](./visualisations/d3_quantile_plot_examples.png)
+*screenshot of interactive d3.js plots illustrating probabilistic forecasting performance*
