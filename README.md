@@ -25,7 +25,7 @@ The above figure illustrates the pinicale of the model complexity investigated a
 
 
 <p align="center">
-  <img src="https://github.com/RichardFindlay/day-ahead-probablistic-forecasting-with-quantile-regression/blob/main/visualisations/solar_spatial_attentions_animation.gif" width="500"/>
+  <img src="https://github.com/RichardFindlay/day-ahead-probablistic-forecasting-with-quantile-regression/blob/main/visualisations/solar_spatial_attentions_animation.gif" width="450"/>
 </p>
 
 
